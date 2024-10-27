@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.VSCode/
+.env
+*.egg-info/
+*.egg
+venv/
+Formatter*
+
