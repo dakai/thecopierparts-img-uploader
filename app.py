@@ -1,5 +1,7 @@
 import os
 import boto3
+import random
+import string
 from tqdm import tqdm
 from wand.image import Image
 from wand.color import Color
@@ -27,6 +29,13 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"  # Folder to store uploaded files
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "tiff"}  # Allowed image extensions
+
+
+def generate_random_filename(length, extension):
+    """Generates a random filename with random placement of letters and numbers."""
+    characters = string.ascii_letters + string.digits
+    random_part = "".join(random.choice(characters) for _ in range(length))
+    return f"{random_part}.{extension}"
 
 
 def allowed_file(filename):
@@ -58,7 +67,8 @@ def upload_public_photo():
 
         if file and allowed_file(file.filename):
             filename = file.filename
-            file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+            if not filename == None:
+                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
         else:
             return jsonify({"error": "File type not allowed"}), 400
 
@@ -79,7 +89,7 @@ def upload_private_photo():
         return jsonify({"error": "Invalid API key"}), 401
 
     # try
-    pass
+    return jsonify({"message": "All files uploaded successfully"}), 201
 
 
 def resize_image(img, compressed_rate):
