@@ -1,7 +1,13 @@
 import os
-from typing import List
+import boto3
+from tqdm import tqdm
+from wand.image import Image
+from wand.color import Color
 from dotenv import load_dotenv
-from cloudflare import Cloudflare
+from wand.drawing import Drawing
+from colorthon import Colors as Fore
+from PIL import Image as PILImage
+from get_jpg_quality import get_jpg_quality
 
 load_dotenv()
 
@@ -16,65 +22,108 @@ CF_ENDPOINT = os.getenv("CF_ENDPOINT")
 BUCKET_NAME = "your_public_bucket"
 
 
-# def upload_files_to_r2(file_paths: List[str]):
-#    """Uploads a list of files to Cloudflare R2 storage.
-#
-#    Args:
-#        file_paths: A list of absolute paths to the files to upload.
-#    """
-#
-#    cf = Cloudflare(token=CF_API_TOKEN)
-#
-#    for file_path in file_paths:
-#        try:
-#            with open(file_path, "rb") as f:
-#                file_content = f.read()
-#
-#            file_name = os.path.basename(file_path)
-#            response = cf.accounts.r2.namespaces.objects.put(
-#                account_id=CF_ACCOUNT_ID,
-#                namespace_id=BUCKET_NAME,
-#                name=file_name,
-#                data=file_content,
-#            )
-#
-#            print(f"Uploaded '{file_name}' successfully. Response: {response}")
-#
-#        except Exception as e:
-#            print(f"Error uploading '{file_name}': {e}")
-#
-#
-# if __name__ == "__main__":
-#    # Example usage:
-#    files_to_upload = [
-#        j"/path/to/file1.txt",
-#        "/path/to/file2.jpg",
-#        "/path/to/file3.pdf",
-#    ]
-#
-#    upload_files_to_r2(files_to_upload)
+def resize_image(img):
+    """Resizes an image if it exceeds 1920px in height or width,
+    preserving aspect ratio.
 
-# https://gist.github.com/Pymmdrza/3e3f30b16f4009503e7572b914fd200d
-# install package's from requirements.txt
-# Windows : pip install -r requirements.txt
-# Linux : pip3 install -r requirements.txt
-import os
-import boto3
-from tqdm import tqdm
-from colorthon import Colors as Fore
+    Args:
+        image_data (bytes): Image data (e.g., from `open(image_path, 'rb').read()`)
+
+    Returns:
+        bytes: Resized image data or original data if no resizing was needed.
+    """
+    img.auto_orient()
+
+    width, height = img.width, img.height
+
+    if width > height and width > 1920:  # Landscape/Horizontal
+        img.transform(resize="1920x")
+    elif height >= width and height > 1920:  # Portrait/Vertical
+        img.transform(resize="x1920")
+
+    img_buffer = img.make_blob(format="jpeg")  # Or the original format of the image
+
+    # img_compression_quality = get_jpg_quality(img_buffer)
+    # print(f"img_compression_quality: {img_compression_quality}")
+    img.compression_quality = 80
+
+    return img  # Return resized or original image data
 
 
-def get_user_input(prompt, example=""):
-    user_input = input(
-        f"{Fore.GREEN}{prompt}{Fore.RESET} [{Fore.GREY}e.x: {example}{Fore.RESET}]: "
-    ).strip()
-    return user_input
+def add_watermark_and_convert(image_path):
+    try:
+        with Image(filename=image_path) as img:
+            pim = PILImage.open(image_path)
+            quality = get_jpg_quality(pim)
+            print(f"Quality: {quality}")
+
+            img = resize_image(img)
+            ## Get image dimensions
+            pic_width = img.width
+            pic_height = img.height
+
+            # Calculate watermark dimensions (adjust as needed)
+            watermark_height = int(0.05 * pic_width)
+            watermark_width = int(5 * pic_width / 15)
+
+            # Create watermark
+            with Drawing() as draw:
+                draw.fill_color = Color("white")
+                draw.font_size = int(
+                    watermark_height / 1.5
+                )  # Adjust font size if needed
+                draw.text_alignment = "center"
+                draw.gravity = "center"  # Center the watermark
+                draw.text(
+                    int(watermark_width / 2),
+                    int(watermark_height / 1.4),
+                    "TheCopierParts.com",
+                )
+                with Image(
+                    width=watermark_width,
+                    height=watermark_height,
+                    background=Color("#0006"),
+                ) as watermark:
+                    draw(watermark)
+                    img.composite(
+                        watermark,
+                        left=int((pic_width - watermark_width) / 2),
+                        top=int((pic_height - watermark_height) / 2),
+                    )
+
+            # Save as JPG
+            output_filename_jpg = (
+                "output/" + image_path
+            )  # Keep the original filename for JPG
+            img.format = "jpeg"
+            img.save(filename=output_filename_jpg)
+
+            # Save as WebP
+            output_filename_webp = (
+                "output/" + os.path.splitext(image_path)[0] + ".jpg.webp"
+            )  # Add .jpg.webp extension
+            img.format = "webp"
+            img.save(filename=output_filename_webp)
+
+            print(
+                f"Processed: {image_path} -> {output_filename_jpg} (JPG), {output_filename_webp} (WebP)"
+            )
+
+    except Exception as e:
+        print(f"Error processing {image_path}: {e}")
 
 
-def validate_input(input_value, expected_length, message):
-    if not input_value or len(input_value) != expected_length:
-        print(f"\n{Fore.RED}{message} Exiting...{Fore.RESET}")
-        exit(1)
+# def get_user_input(prompt, example=""):
+#    user_input = input(
+#        f"{Fore.GREEN}{prompt}{Fore.RESET} [{Fore.GREY}e.x: {example}{Fore.RESET}]: "
+#    ).strip()
+#    return user_input
+#
+#
+# def validate_input(input_value, expected_length, message):
+#    if not input_value or len(input_value) != expected_length:
+#        print(f"\n{Fore.RED}{message} Exiting...{Fore.RESET}")
+#        exit(1)
 
 
 def upload_to_r2_cloudflare(
@@ -121,9 +170,13 @@ def main():
 
     file_path = "test.webp"
 
-    upload_to_r2_cloudflare(
-        endpoint_url, access_key, secret_key, reg_name, remote_folder, file_path
-    )
+    # upload_to_r2_cloudflare(
+    #    endpoint_url, access_key, secret_key, reg_name, remote_folder, file_path
+    # )
+
+    # Example usage (process a single image):
+    image_path = "test.jpg"  # Replace with your image path
+    add_watermark_and_convert(image_path)
 
 
 if __name__ == "__main__":
