@@ -8,6 +8,7 @@ from wand.drawing import Drawing
 from colorthon import Colors as Fore
 from PIL import Image as PILImage
 from get_jpg_quality import get_jpg_quality
+from flask import Flask, request, jsonify, render_template, Response
 
 load_dotenv()
 
@@ -17,9 +18,45 @@ CF_ACCESS_KEY = os.getenv("CF_ACCESS_KEY")
 CF_SECRET_KEY = os.getenv("CF_SECRET_KEY")
 CF_ENDPOINT = os.getenv("CF_ENDPOINT")
 # BUCKET_NAME = os.getenv("BUCKET_NAME")
-
+API_KEY = os.getenv("SECRET_KEY")
 # R2 bucket details
 BUCKET_NAME = "your_public_bucket"
+
+app = Flask(__name__)
+
+
+@app.route("/public", methods=["POST"])
+def upload_public_photo():
+    # 1. Authentication Check
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    print(api_key)
+    print(API_KEY)
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    # try
+    pass
+
+
+@app.route("/private", methods=["POST"])
+def upload_private_photo():
+    # 1. Authentication Check
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    print(api_key)
+    print(API_KEY)
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    # try
+    pass
 
 
 def resize_image(img, compressed_rate):
