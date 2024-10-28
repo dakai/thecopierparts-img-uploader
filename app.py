@@ -57,7 +57,6 @@ def check_if_file_exists(file_path):
 
 def generate_unique_filename(filename):
     extension = filename.rsplit(".", 1)[1].lower()
-    print(f"Extension: {extension}")
     unique_filename = generate_random_filename(6, extension)
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     while check_if_file_exists(file_path):
@@ -80,12 +79,13 @@ def upload_public_photo():
     #    return jsonify({"error": "Invalid API key"}), 401
 
     # try
-    uploaded_files = request.files.getlist("file")
-    if not uploaded_files:
+
+    files = request.files.getlist("file")
+    uploaded_files = []
+    if not files:
         return jsonify({"error": "No file part in the request"}), 400
 
-    for file in uploaded_files:
-        print(file.filename)
+    for file in files:
         if file.filename == "":
             return jsonify({"error": "No selected file"}), 400
 
@@ -93,12 +93,17 @@ def upload_public_photo():
             filename = file.filename
             if not filename == None:
                 unique_filename = generate_unique_filename(filename)
-                print(unique_filename)
                 file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
+                uploaded_files.append(unique_filename)
         else:
             return jsonify({"error": "File type not allowed"}), 400
 
-    return jsonify({"message": "All files uploaded successfully"}), 201
+    return (
+        jsonify(
+            {"message": "All files uploaded successfully", "files": uploaded_files}
+        ),
+        201,
+    )
 
 
 @app.route("/private", methods=["POST"])
