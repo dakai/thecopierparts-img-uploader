@@ -22,7 +22,7 @@ CF_ENDPOINT = os.getenv("CF_ENDPOINT")
 BUCKET_NAME = "your_public_bucket"
 
 
-def resize_image(img):
+def resize_image(img, compressed_rate):
     """Resizes an image if it exceeds 1920px in height or width,
     preserving aspect ratio.
 
@@ -41,11 +41,8 @@ def resize_image(img):
     elif height >= width and height > 1920:  # Portrait/Vertical
         img.transform(resize="x1920")
 
-    img_buffer = img.make_blob(format="jpeg")  # Or the original format of the image
-
-    # img_compression_quality = get_jpg_quality(img_buffer)
-    # print(f"img_compression_quality: {img_compression_quality}")
-    img.compression_quality = 80
+    if compressed_rate > 80:
+        img.compression_quality = 80
 
     return img  # Return resized or original image data
 
@@ -57,7 +54,7 @@ def add_watermark_and_convert(image_path):
             quality = get_jpg_quality(pim)
             print(f"Quality: {quality}")
 
-            img = resize_image(img)
+            img = resize_image(img, quality)
             ## Get image dimensions
             pic_width = img.width
             pic_height = img.height
