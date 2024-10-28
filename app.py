@@ -24,22 +24,42 @@ BUCKET_NAME = "your_public_bucket"
 
 app = Flask(__name__)
 
+UPLOAD_FOLDER = "uploads"  # Folder to store uploaded files
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "tiff"}  # Allowed image extensions
+
+
+def allowed_file(filename):
+    """Checks if the file extension is allowed."""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 @app.route("/public", methods=["POST"])
 def upload_public_photo():
     # 1. Authentication Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
+    # auth_header = request.headers.get("Authorization")
+    # if not auth_header or not auth_header.startswith("Bearer "):
+    #    return jsonify({"error": "Authentication required"}), 401
 
-    api_key = auth_header.split("Bearer ")[1]
-    print(api_key)
-    print(API_KEY)
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
+    # api_key = auth_header.split("Bearer ")[1]
+    # print(api_key)
+    # print(API_KEY)
+    # if api_key != API_KEY:
+    #    return jsonify({"error": "Invalid API key"}), 401
 
     # try
-    pass
+    if "file" not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file = request.files["file"]
+
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
+    if file and allowed_file(file.filename):
+        filename = file.filename
+        file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+        return jsonify({"message": "File successfully uploaded"}), 201
 
 
 @app.route("/private", methods=["POST"])
@@ -225,4 +245,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    app.run(debug=True)
