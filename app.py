@@ -98,18 +98,37 @@ def add_watermark_and_convert(image_path):
                 img.format = "jpeg"
                 img.save(filename=output_filename_jpg)
 
+                # Save as WebP
+                output_filename_webp = (
+                    "output/" + os.path.splitext(image_path)[0] + ".jpg.webp"
+                )  # Add .jpg.webp extension
+                img.format = "webp"
+                img.save(filename=output_filename_webp)
+
             if img.format == "png":
                 output_filename_png = (
                     "output/" + os.path.splitext(image_path)[0] + ".png"
                 )
                 img.format = "png"
                 img.save(filename=output_filename_png)
-            # Save as WebP
-            output_filename_webp = (
-                "output/" + os.path.splitext(image_path)[0] + ".jpg.webp"
-            )  # Add .jpg.webp extension
-            img.format = "webp"
-            img.save(filename=output_filename_webp)
+
+                output_filename_webp = (
+                    "output/" + os.path.splitext(image_path)[0] + ".jpg.webp"
+                )  # Add .jpg.webp extension
+                img.format = "webp"
+                img.save(filename=output_filename_webp)
+
+            if img.format == "webp":
+                output_filename_webp = (
+                    "output/" + os.path.splitext(image_path)[0] + ".webp"
+                )
+                img.save(filename=output_filename_webp)
+
+                img.format = "jpeg"
+                output_filename_jpg = (
+                    "output/" + image_path
+                )  # Keep the original filename for JPG
+                img.save(filename=output_filename_jpg)
 
             print(f"Processed: {image_path}")
 
