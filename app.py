@@ -90,50 +90,35 @@ def add_watermark_and_convert(image_path):
                         left=int((pic_width - watermark_width) / 2),
                         top=int((pic_height - watermark_height) / 2),
                     )
-            if img.format == "jpeg":
-                # Save as JPG
-                output_filename_jpg = (
-                    "output/" + image_path
-                )  # Keep the original filename for JPG
-                img.format = "jpeg"
-                img.save(filename=output_filename_jpg)
-
-                # Save as WebP
-                output_filename_webp = (
-                    "output/" + os.path.splitext(image_path)[0] + ".jpg.webp"
-                )  # Add .jpg.webp extension
-                img.format = "webp"
-                img.save(filename=output_filename_webp)
-
-            if img.format == "png":
-                output_filename_png = (
-                    "output/" + os.path.splitext(image_path)[0] + ".png"
-                )
-                img.format = "png"
-                img.save(filename=output_filename_png)
-
-                output_filename_webp = (
-                    "output/" + os.path.splitext(image_path)[0] + ".jpg.webp"
-                )  # Add .jpg.webp extension
-                img.format = "webp"
-                img.save(filename=output_filename_webp)
-
-            if img.format == "webp":
-                output_filename_webp = (
-                    "output/" + os.path.splitext(image_path)[0] + ".webp"
-                )
-                img.save(filename=output_filename_webp)
-
-                img.format = "jpeg"
-                output_filename_jpg = (
-                    "output/" + image_path
-                )  # Keep the original filename for JPG
-                img.save(filename=output_filename_jpg)
+            img.format = "jpg"
+            img.save(filename="output/" + os.path.splitext(image_path)[0] + ".jpg")
+            img.format = "webp"
+            img.save(filename="output/" + os.path.splitext(image_path)[0] + ".jpg.webp")
 
             print(f"Processed: {image_path}")
 
     except Exception as e:
         print(f"Error processing {image_path}: {e}")
+
+
+def save_image_formats(img, image_path):
+    """Saves the image in JPEG, PNG, and WebP formats based on its original format."""
+
+    base_filename, _ = os.path.splitext(image_path)  # Get filename without extension
+    output_path_jpg = os.path.join(
+        "output", image_path
+    )  # Keep original filename for JPG
+    output_path_webp = os.path.join("output", base_filename + ".jpg.webp")
+
+    if img.format == "jpeg":
+        img.save(filename=output_path_jpg)  # Save as original JPG
+
+    if img.format in ("jpeg", "png"):  # Save WebP for both JPEG and PNG
+        img.format = "webp"
+        img.save(filename=output_path_webp)
+
+    if img.format == "png":
+        output_path_png = os.path.join("output", base_filename + ".png")
 
 
 # def get_user_input(prompt, example=""):
