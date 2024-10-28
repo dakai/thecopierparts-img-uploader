@@ -43,6 +43,29 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def check_if_file_exists(file_path):
+    """Checks if a file exists at the given path.
+
+    Args:
+      file_path: The path to the file, including the filename.
+
+    Returns:
+      True if the file exists, False otherwise.
+    """
+    return os.path.exists(file_path)
+
+
+def generate_unique_filename(filename):
+    extension = filename.rsplit(".", 1)[1].lower()
+    print(f"Extension: {extension}")
+    unique_filename = generate_random_filename(6, extension)
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    while check_if_file_exists(file_path):
+        unique_filename = generate_random_filename(6, extension)
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    return unique_filename
+
+
 @app.route("/public", methods=["POST"])
 def upload_public_photo():
     # 1. Authentication Check
@@ -62,13 +85,16 @@ def upload_public_photo():
         return jsonify({"error": "No file part in the request"}), 400
 
     for file in uploaded_files:
+        print(file.filename)
         if file.filename == "":
             return jsonify({"error": "No selected file"}), 400
 
         if file and allowed_file(file.filename):
             filename = file.filename
             if not filename == None:
-                file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+                unique_filename = generate_unique_filename(filename)
+                print(unique_filename)
+                file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
         else:
             return jsonify({"error": "File type not allowed"}), 400
 
