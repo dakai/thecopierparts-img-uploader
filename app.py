@@ -1,4 +1,5 @@
 import os
+from os.path import basename
 import boto3
 import random
 import string
@@ -95,6 +96,8 @@ def upload_public_photo():
                 unique_filename = generate_unique_filename(filename)
                 file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
                 uploaded_files.append(unique_filename)
+                image_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+                add_watermark_and_convert(image_path)
         else:
             return jsonify({"error": "File type not allowed"}), 400
 
@@ -151,7 +154,11 @@ def resize_image(img, compressed_rate):
 def add_watermark_and_convert(image_path):
     try:
         with Image(filename=image_path) as img:
+            print(f"file path: {image_path}")
+            basename = os.path.basename(image_path)
+            name_without_extension = os.path.splitext(basename)[0]
 
+            print(f"File Name: {basename}")
             if img.format == "jpeg":
                 pim = PILImage.open(image_path)
                 quality = get_jpg_quality(pim)
@@ -192,9 +199,9 @@ def add_watermark_and_convert(image_path):
                         top=int((pic_height - watermark_height) / 2),
                     )
             img.format = "jpg"
-            img.save(filename="output/" + os.path.splitext(image_path)[0] + ".jpg")
+            img.save(filename="output/" + name_without_extension + ".jpg")
             img.format = "webp"
-            img.save(filename="output/" + os.path.splitext(image_path)[0] + ".jpg.webp")
+            img.save(filename="output/" + name_without_extension + ".jpg.webp")
 
             print(f"Processed: {image_path}")
 
