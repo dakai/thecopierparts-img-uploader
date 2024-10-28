@@ -8,7 +8,7 @@ from wand.drawing import Drawing
 from colorthon import Colors as Fore
 from PIL import Image as PILImage
 from get_jpg_quality import get_jpg_quality
-from flask import Flask, request, jsonify, render_template, Response
+from flask import Flask, request, jsonify
 
 load_dotenv()
 
@@ -48,18 +48,21 @@ def upload_public_photo():
     #    return jsonify({"error": "Invalid API key"}), 401
 
     # try
-    if "file" not in request.files:
+    uploaded_files = request.files.getlist("file")
+    if not uploaded_files:
         return jsonify({"error": "No file part in the request"}), 400
 
-    file = request.files["file"]
+    for file in uploaded_files:
+        if file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
 
-    if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+        if file and allowed_file(file.filename):
+            filename = file.filename
+            file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
+        else:
+            return jsonify({"error": "File type not allowed"}), 400
 
-    if file and allowed_file(file.filename):
-        filename = file.filename
-        file.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-        return jsonify({"message": "File successfully uploaded"}), 201
+    return jsonify({"message": "All files uploaded successfully"}), 201
 
 
 @app.route("/private", methods=["POST"])
@@ -156,26 +159,6 @@ def add_watermark_and_convert(image_path):
 
     except Exception as e:
         print(f"Error processing {image_path}: {e}")
-
-
-def save_image_formats(img, image_path):
-    """Saves the image in JPEG, PNG, and WebP formats based on its original format."""
-
-    base_filename, _ = os.path.splitext(image_path)  # Get filename without extension
-    output_path_jpg = os.path.join(
-        "output", image_path
-    )  # Keep original filename for JPG
-    output_path_webp = os.path.join("output", base_filename + ".jpg.webp")
-
-    if img.format == "jpeg":
-        img.save(filename=output_path_jpg)  # Save as original JPG
-
-    if img.format in ("jpeg", "png"):  # Save WebP for both JPEG and PNG
-        img.format = "webp"
-        img.save(filename=output_path_webp)
-
-    if img.format == "png":
-        output_path_png = os.path.join("output", base_filename + ".png")
 
 
 # def get_user_input(prompt, example=""):
