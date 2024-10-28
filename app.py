@@ -50,10 +50,13 @@ def resize_image(img, compressed_rate):
 def add_watermark_and_convert(image_path):
     try:
         with Image(filename=image_path) as img:
-            pim = PILImage.open(image_path)
-            quality = get_jpg_quality(pim)
-            print(f"Quality: {quality}")
 
+            if img.format == "jpeg":
+                pim = PILImage.open(image_path)
+                quality = get_jpg_quality(pim)
+                print(f"Quality: {quality}")
+            else:
+                quality = 100
             img = resize_image(img, quality)
             ## Get image dimensions
             pic_width = img.width
@@ -87,14 +90,20 @@ def add_watermark_and_convert(image_path):
                         left=int((pic_width - watermark_width) / 2),
                         top=int((pic_height - watermark_height) / 2),
                     )
+            if img.format == "jpeg":
+                # Save as JPG
+                output_filename_jpg = (
+                    "output/" + image_path
+                )  # Keep the original filename for JPG
+                img.format = "jpeg"
+                img.save(filename=output_filename_jpg)
 
-            # Save as JPG
-            output_filename_jpg = (
-                "output/" + image_path
-            )  # Keep the original filename for JPG
-            img.format = "jpeg"
-            img.save(filename=output_filename_jpg)
-
+            if img.format == "png":
+                output_filename_png = (
+                    "output/" + os.path.splitext(image_path)[0] + ".png"
+                )
+                img.format = "png"
+                img.save(filename=output_filename_png)
             # Save as WebP
             output_filename_webp = (
                 "output/" + os.path.splitext(image_path)[0] + ".jpg.webp"
@@ -102,9 +111,7 @@ def add_watermark_and_convert(image_path):
             img.format = "webp"
             img.save(filename=output_filename_webp)
 
-            print(
-                f"Processed: {image_path} -> {output_filename_jpg} (JPG), {output_filename_webp} (WebP)"
-            )
+            print(f"Processed: {image_path}")
 
     except Exception as e:
         print(f"Error processing {image_path}: {e}")
@@ -172,7 +179,7 @@ def main():
     # )
 
     # Example usage (process a single image):
-    image_path = "test.jpg"  # Replace with your image path
+    image_path = "test.png"  # Replace with your image path
     add_watermark_and_convert(image_path)
 
 
