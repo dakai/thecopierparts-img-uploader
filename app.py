@@ -94,9 +94,11 @@ def upload_public_photo():
             filename = file.filename
             if not filename == None:
                 unique_filename = generate_unique_filename(filename)
-                file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
-                uploaded_files.append(unique_filename)
+                # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
                 image_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+                file.save(image_path)
+                convert_webp(image_path)
+                uploaded_files.append(unique_filename)
                 # upload_to_r2_cloudflare(
                 #    CF_ENDPOINT,
                 #    CF_ACCESS_KEY,
@@ -106,6 +108,7 @@ def upload_public_photo():
                 #    image_path,
                 # )
                 add_watermark_and_convert(image_path)
+                # delete_file(image_path)
         else:
             return jsonify({"error": "File type not allowed"}), 400
 
@@ -157,6 +160,36 @@ def resize_image(img, compressed_rate):
         img.compression_quality = 80
 
     return img  # Return resized or original image data
+
+
+def delete_file(file_path):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+
+def convert_webp(image_path):
+    try:
+        with Image(filename=image_path) as img:
+            print(f"file path: {image_path}")
+            basename = os.path.basename(image_path)
+            name_without_extension = os.path.splitext(basename)[0]
+
+            print(f"File Name: {basename}")
+            if img.format == "jpeg":
+                pim = PILImage.open(image_path)
+                quality = get_jpg_quality(pim)
+                print(f"Quality: {quality}")
+            else:
+                quality = 100
+            img = resize_image(img, quality)
+            ## Get image dimensions
+            img.format = "webp"
+            img.save(filename="output/" + name_without_extension + ".webp")
+
+            print(f"Processed: {image_path}")
+
+    except Exception as e:
+        print(f"Error processing {image_path}: {e}")
 
 
 def add_watermark_and_convert(image_path):
