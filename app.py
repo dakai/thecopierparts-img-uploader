@@ -1,5 +1,4 @@
 import os
-from os.path import basename
 import boto3
 import random
 import string
@@ -24,6 +23,7 @@ CF_ENDPOINT = os.getenv("CF_ENDPOINT")
 API_KEY = os.getenv("SECRET_KEY")
 # R2 bucket details
 BUCKET_NAME = "your_public_bucket"
+PRIVATE_BUCKET = "your_private_bucket"
 
 app = Flask(__name__)
 
