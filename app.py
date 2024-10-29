@@ -29,7 +29,7 @@ app = Flask(__name__)
 
 UPLOAD_FOLDER = "uploads"  # Folder to store uploaded files
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "tiff"}  # Allowed image extensions
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "tif"}  # Allowed image extensions
 
 
 def generate_random_filename(length, extension):
@@ -97,6 +97,14 @@ def upload_public_photo():
                 file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
                 uploaded_files.append(unique_filename)
                 image_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+                # upload_to_r2_cloudflare(
+                #    CF_ENDPOINT,
+                #    CF_ACCESS_KEY,
+                #    CF_SECRET_KEY,
+                #    "auto",
+                #    PRIVATE_BUCKET,
+                #    image_path,
+                # )
                 add_watermark_and_convert(image_path)
         else:
             return jsonify({"error": "File type not allowed"}), 400

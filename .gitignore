@@ -11,4 +11,5 @@ Formatter*
 *.webp
 *.png
 *.jpg
+*.tif
 !.env.local
