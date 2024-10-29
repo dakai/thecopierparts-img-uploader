@@ -97,7 +97,7 @@ def upload_public_photo():
                 # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
                 image_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
                 file.save(image_path)
-                convert_webp(image_path)
+                # convert_webp(image_path)
                 uploaded_files.append(unique_filename)
                 # upload_to_r2_cloudflare(
                 #    CF_ENDPOINT,
