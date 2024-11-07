@@ -149,7 +149,7 @@ def delete_public_photo():
             CF_ACCESS_KEY,
             CF_SECRET_KEY,
             "auto",
-            PRIVATE_BUCKET,
+            BUCKET_NAME,
             file,
         )
     except Exception as e:
