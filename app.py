@@ -130,6 +130,34 @@ def upload_public_photo():
     )
 
 
+@app.route("/delete_public", methods=["POST"])
+def delete_public_photo():
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    try:
+        # file = request.json.get("file")
+        data = request.get_json()
+        file = data.get("filename")
+        delete_from_r2_cloudflare(
+            CF_ENDPOINT,
+            CF_ACCESS_KEY,
+            CF_SECRET_KEY,
+            "auto",
+            PRIVATE_BUCKET,
+            file,
+        )
+    except Exception as e:
+        return jsonify({"error": f"Error deleting files: {str(e)}"}), 500
+
+    return jsonify({"message": "Files deleted successfully"}), 201
+
+
 @app.route("/private", methods=["POST"])
 def upload_private_photo():
     # 1. Authentication Check
@@ -320,6 +348,23 @@ def upload_to_r2_cloudflare(
             s3.upload_fileobj(
                 f, remote_folder, file_name, Callback=lambda x: pbar.update(x)
             )
+
+
+def delete_from_r2_cloudflare(
+    endpoint_url, access_key_id, secret_key, region_name, remote_folder, file_name
+):
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_key,
+        region_name=region_name,
+    )
+    try:
+        s3.delete_object(Bucket=remote_folder, Key=file_name)
+    except Exception as e:
+        print(f"Error deleting {file_name} from R2: {e}")
+    pass
 
 
 if __name__ == "__main__":
