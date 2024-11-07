@@ -19,10 +19,10 @@ CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID")
 CF_ACCESS_KEY = os.getenv("CF_ACCESS_KEY")
 CF_SECRET_KEY = os.getenv("CF_SECRET_KEY")
 CF_ENDPOINT = os.getenv("CF_ENDPOINT")
-# BUCKET_NAME = os.getenv("BUCKET_NAME")
+# PUBLIC_BUCKET = os.getenv("PUBLIC_BUCKET")
 API_KEY = os.getenv("SECRET_KEY")
 # R2 bucket details
-BUCKET_NAME = "your_public_bucket"
+PUBLIC_BUCKET = "your_public_bucket"
 PRIVATE_BUCKET = "your_private_bucket"
 
 app = Flask(__name__)
@@ -149,7 +149,35 @@ def delete_public_photo():
             CF_ACCESS_KEY,
             CF_SECRET_KEY,
             "auto",
-            BUCKET_NAME,
+            PUBLIC_BUCKET,
+            file,
+        )
+    except Exception as e:
+        return jsonify({"error": f"Error deleting files: {str(e)}"}), 500
+
+    return jsonify({"message": "Files deleted successfully"}), 201
+
+
+@app.route("/delete_private", methods=["POST"])
+def delete_private_photo():
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    try:
+        # file = request.json.get("file")
+        data = request.get_json()
+        file = data.get("filename")
+        delete_from_r2_cloudflare(
+            CF_ENDPOINT,
+            CF_ACCESS_KEY,
+            CF_SECRET_KEY,
+            "auto",
+            PRIVATE_BUCKET,
             file,
         )
     except Exception as e:
@@ -187,7 +215,7 @@ def upload_watermark(image_path):
             CF_ACCESS_KEY,
             CF_SECRET_KEY,
             "auto",
-            BUCKET_NAME,
+            PUBLIC_BUCKET,
             webp_path,
         )
         upload_to_r2_cloudflare(
@@ -195,7 +223,7 @@ def upload_watermark(image_path):
             CF_ACCESS_KEY,
             CF_SECRET_KEY,
             "auto",
-            BUCKET_NAME,
+            PUBLIC_BUCKET,
             path,
         )
 
