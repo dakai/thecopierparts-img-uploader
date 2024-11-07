@@ -69,15 +69,15 @@ def generate_unique_filename(filename):
 @app.route("/public", methods=["POST"])
 def upload_public_photo():
     # 1. Authentication Check
-    # auth_header = request.headers.get("Authorization")
-    # if not auth_header or not auth_header.startswith("Bearer "):
-    #    return jsonify({"error": "Authentication required"}), 401
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
 
-    # api_key = auth_header.split("Bearer ")[1]
+    api_key = auth_header.split("Bearer ")[1]
     # print(api_key)
     # print(API_KEY)
-    # if api_key != API_KEY:
-    #    return jsonify({"error": "Invalid API key"}), 401
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
 
     # try
 
@@ -99,16 +99,17 @@ def upload_public_photo():
                 file.save(image_path)
                 # convert_webp(image_path)
                 uploaded_files.append(unique_filename)
-                # upload_to_r2_cloudflare(
-                #    CF_ENDPOINT,
-                #    CF_ACCESS_KEY,
-                #    CF_SECRET_KEY,
-                #    "auto",
-                #    PRIVATE_BUCKET,
-                #    image_path,
-                # )
+                upload_to_r2_cloudflare(
+                    CF_ENDPOINT,
+                    CF_ACCESS_KEY,
+                    CF_SECRET_KEY,
+                    "auto",
+                    PRIVATE_BUCKET,
+                    image_path,
+                )
                 add_watermark_and_convert(image_path)
-                # delete_file(image_path)
+                upload_watermark(unique_filename)
+                delete_file(image_path)
         else:
             return jsonify({"error": "File type not allowed"}), 400
 
@@ -135,6 +136,37 @@ def upload_private_photo():
 
     # try
     return jsonify({"message": "All files uploaded successfully"}), 201
+
+
+def upload_watermark(image_path):
+    try:
+        name_without_extension = os.path.splitext(image_path)[0]
+
+        path = "output/" + name_without_extension + ".jpg"
+        webp_path = "output/" + name_without_extension + ".jpg.webp"
+
+        upload_to_r2_cloudflare(
+            CF_ENDPOINT,
+            CF_ACCESS_KEY,
+            CF_SECRET_KEY,
+            "auto",
+            BUCKET_NAME,
+            webp_path,
+        )
+        upload_to_r2_cloudflare(
+            CF_ENDPOINT,
+            CF_ACCESS_KEY,
+            CF_SECRET_KEY,
+            "auto",
+            BUCKET_NAME,
+            path,
+        )
+
+        delete_file(path)
+        delete_file(webp_path)
+
+    except Exception as e:
+        print(f"Error processing {image_path}: {e}")
 
 
 def resize_image(img, compressed_rate):
