@@ -10,7 +10,7 @@ from wand.drawing import Drawing
 from colorthon import Colors as Fore
 from PIL import Image as PILImage
 from get_jpg_quality import get_jpg_quality
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 load_dotenv()
 
@@ -64,6 +64,15 @@ def generate_unique_filename(filename):
         unique_filename = generate_random_filename(6, extension)
         file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     return unique_filename
+
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 
 @app.route("/public", methods=["POST"])
@@ -282,19 +291,6 @@ def add_watermark_and_convert(image_path):
         print(f"Error processing {image_path}: {e}")
 
 
-# def get_user_input(prompt, example=""):
-#    user_input = input(
-#        f"{Fore.GREEN}{prompt}{Fore.RESET} [{Fore.GREY}e.x: {example}{Fore.RESET}]: "
-#    ).strip()
-#    return user_input
-#
-#
-# def validate_input(input_value, expected_length, message):
-#    if not input_value or len(input_value) != expected_length:
-#        print(f"\n{Fore.RED}{message} Exiting...{Fore.RESET}")
-#        exit(1)
-
-
 def upload_to_r2_cloudflare(
     endpoint_url, access_key_id, secret_key, region_name, remote_folder, local_file
 ):
@@ -326,28 +322,5 @@ def upload_to_r2_cloudflare(
             )
 
 
-def main():
-    # account_id = CF_ACCOUNT_ID
-    access_key = CF_ACCESS_KEY
-    secret_key = CF_SECRET_KEY
-    # reg_name = get_user_input("REGION NAME (Default: auto)", "auto")
-    reg_name = "auto"
-
-    endpoint_url = CF_ENDPOINT
-
-    remote_folder = BUCKET_NAME
-
-    file_path = "test.webp"
-
-    # upload_to_r2_cloudflare(
-    #    endpoint_url, access_key, secret_key, reg_name, remote_folder, file_path
-    # )
-
-    # Example usage (process a single image):
-    image_path = "test.png"  # Replace with your image path
-    add_watermark_and_convert(image_path)
-
-
 if __name__ == "__main__":
-    # main()
     app.run(debug=True)
