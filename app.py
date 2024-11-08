@@ -59,10 +59,26 @@ def check_if_file_exists(file_path):
 def generate_unique_filename(filename):
     extension = filename.rsplit(".", 1)[1].lower()
     unique_filename = generate_random_filename(6, extension)
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
     while check_if_file_exists(file_path):
         unique_filename = generate_random_filename(6, extension)
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+    return unique_filename
+
+
+def generate_unique_document_filename(filename):
+    extension = filename.rsplit(".", 1)[1].lower()
+    filename_without_extension = os.path.splitext(filename)[0]
+    unique_filename = generate_random_filename(4, extension)
+    file_path = os.path.join(
+        app.config["UPLOAD_FOLDER"], filename_without_extension + "_" + unique_filename
+    )
+    while check_if_file_exists(file_path):
+        unique_filename = generate_random_filename(4, extension)
+        file_path = os.path.join(
+            app.config["UPLOAD_FOLDER"],
+            filename_without_extension + "_" + unique_filename,
+        )
     return unique_filename
 
 
@@ -73,6 +89,145 @@ def home():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    # 1. Authentication Check
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    # data = request.get_json()
+    # file = data.get("filename")
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    # bucket_name = data.get("bucket")
+    bucket_name = request.form.get("bucket")
+    if bucket_name == "your_public_bucket":
+        try:
+            uploaded_files = []
+            files = request.files.getlist("file")
+            if not files:
+                return jsonify({"error": "No file part in the request"}), 400
+
+            for file in files:
+                if file.filename == "":
+                    return jsonify({"error": "No selected file"}), 400
+
+                if file and allowed_file(file.filename):
+                    filename = file.filename
+                    if not filename == None:
+                        unique_filename = generate_unique_filename(filename)
+                        # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
+                        image_path = os.path.join(
+                            app.config["UPLOAD_FOLDER"], unique_filename
+                        )
+                        file.save(image_path)
+                        # convert_webp(image_path)
+                        uploaded_files.append(unique_filename)
+                        upload_to_r2_cloudflare(
+                            CF_ENDPOINT,
+                            CF_ACCESS_KEY,
+                            CF_SECRET_KEY,
+                            "auto",
+                            PRIVATE_BUCKET,  # Save as a none watermarked backup
+                            image_path,
+                        )
+                        add_watermark_and_convert(image_path)
+                        upload_watermark(unique_filename)
+                        delete_file(image_path)
+                else:
+                    return jsonify({"error": "File type not allowed"}), 400
+
+        except Exception as e:
+            return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
+        return (
+            jsonify(
+                {"message": "All files uploaded successfully", "files": uploaded_files}
+            ),
+            201,
+        )
+    elif bucket_name == "your_private_bucket":
+        try:
+            uploaded_files = []
+            files = request.files.getlist("file")
+            if not files:
+                return jsonify({"error": "No file part in the request"}), 400
+
+            for file in files:
+                if file.filename == "":
+                    return jsonify({"error": "No selected file"}), 400
+
+                if file and allowed_file(file.filename):
+                    filename = file.filename
+                    if not filename == None:
+                        unique_filename = generate_unique_filename(filename)
+                        # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
+                        image_path = os.path.join(
+                            app.config["UPLOAD_FOLDER"], unique_filename
+                        )
+                        file.save(image_path)
+                        # convert_webp(image_path)
+                        uploaded_files.append(unique_filename)
+                        upload_to_r2_cloudflare(
+                            CF_ENDPOINT,
+                            CF_ACCESS_KEY,
+                            CF_SECRET_KEY,
+                            "auto",
+                            bucket_name,
+                            image_path,
+                        )
+                        delete_file(image_path)
+
+        except Exception as e:
+            return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
+        return (
+            jsonify(
+                {"message": "All files uploaded successfully", "files": uploaded_files}
+            ),
+            201,
+        )
+    else:
+        try:
+            uploaded_files = []
+            files = request.files.getlist("file")
+            if not files:
+                return jsonify({"error": "No file part in the request"}), 400
+
+            for file in files:
+                if file.filename == "":
+                    return jsonify({"error": "No selected file"}), 400
+
+                filename = file.filename
+                if not filename == None:
+                    unique_filename = generate_unique_document_filename(filename)
+                    # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
+                    image_path = os.path.join(
+                        app.config["UPLOAD_FOLDER"], unique_filename
+                    )
+                    file.save(image_path)
+                    # convert_webp(image_path)
+                    uploaded_files.append(unique_filename)
+                    upload_to_r2_cloudflare(
+                        CF_ENDPOINT,
+                        CF_ACCESS_KEY,
+                        CF_SECRET_KEY,
+                        "auto",
+                        bucket_name,
+                        image_path,
+                    )
+                    delete_file(image_path)
+        except Exception as e:
+            return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
+        return (
+            jsonify(
+                {"message": "All files uploaded successfully", "files": uploaded_files}
+            ),
+            201,
+        )
 
 
 @app.route("/public", methods=["POST"])
