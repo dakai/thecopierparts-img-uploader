@@ -10,7 +10,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install dependencies
-RUN apt update && apt install libmagicwand-dev && pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install libmagickwand-dev && pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
 COPY . .
