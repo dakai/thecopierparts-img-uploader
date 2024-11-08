@@ -79,7 +79,7 @@ def generate_unique_document_filename(filename):
             app.config["UPLOAD_FOLDER"],
             filename_without_extension + "_" + unique_filename,
         )
-    return unique_filename
+    return filename_without_extension + "_" + unique_filename
 
 
 @app.route("/")
@@ -204,7 +204,6 @@ def upload():
                 filename = file.filename
                 if not filename == None:
                     unique_filename = generate_unique_document_filename(filename)
-                    # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
                     image_path = os.path.join(
                         app.config["UPLOAD_FOLDER"], unique_filename
                     )
