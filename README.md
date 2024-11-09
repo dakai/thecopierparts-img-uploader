@@ -14,5 +14,16 @@ curl -X POST https://url/upload \
 ### Delete a file
 
 ```
+curl -X POST -H "Content-Type: application/json" \
+-H "Authorization: Bearer token" \
+-d '{"filename": "filename", "bucket":"bucketname"}' http://url/delete
 
+```
+
+### List files
+
+```
+curl -H "Authorization: Bearer token" https://url/list \
+-H "Content-Type: application/json" \
+-d '{"bucket":"bucketname"}'
 ```
