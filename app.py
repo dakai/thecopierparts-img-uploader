@@ -2,6 +2,7 @@ import os
 import boto3
 import random
 import string
+import json
 from tqdm import tqdm
 from wand.image import Image
 from wand.color import Color
@@ -227,6 +228,145 @@ def upload():
             ),
             201,
         )
+
+
+@app.route("/delete", methods=["POST"])
+def delete():
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    try:
+        # file = request.json.get("file")
+        data = request.get_json()
+        file = data.get("filename")
+        bucket = data.get("bucket")
+        delete_from_r2_cloudflare(
+            CF_ENDPOINT,
+            CF_ACCESS_KEY,
+            CF_SECRET_KEY,
+            "auto",
+            bucket,
+            file,
+        )
+    except Exception as e:
+        return jsonify({"error": f"Error deleting files: {str(e)}"}), 500
+
+    return jsonify({"message": "Files deleted successfully"}), 201
+
+
+@app.route("/list", methods=["POST"])
+def list_content():
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    try:
+        # file = request.json.get("file")
+        data = request.get_json()
+        bucket = data.get("bucket")
+        result = get_bucket_contents(
+            bucket,
+            CF_ENDPOINT,
+            CF_ACCESS_KEY,
+            CF_SECRET_KEY,
+            "auto",
+        )
+
+        if result:
+            # Work with Python list of dictionaries
+            for item in result["objects"]:
+                print(f"Processing file: {item['key']}")
+                # Do something with the item...
+
+            # Or work with JSON string
+            print(result["json_string"])
+
+    except Exception as e:
+        return jsonify({"error": f"Error listing files: {str(e)}"}), 500
+
+    return jsonify(result), 200
+
+
+def get_bucket_contents(
+    bucket_name,
+    endpoint_url,
+    access_key_id,
+    secret_key,
+    region_name,
+):
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_key,
+        region_name=region_name,
+    )
+    objects_list = []
+
+    try:
+        paginator = s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=bucket_name)
+
+        for page in pages:
+            for obj in page.get("Contents", []):
+                # Convert datetime to string for JSON serialization
+                obj["LastModified"] = obj["LastModified"].isoformat()
+
+                # Create a clean dictionary with desired fields
+                object_dict = {
+                    "key": obj["Key"],
+                    "size": obj["Size"],
+                    "last_modified": obj["LastModified"],
+                    "etag": obj["ETag"].strip('"'),
+                    "storage_class": obj["StorageClass"],
+                }
+                objects_list.append(object_dict)
+
+        # Convert to JSON string if needed
+        json_data = json.dumps(objects_list, indent=2)
+
+        return {
+            "objects": objects_list,  # Python list of dictionaries
+            "json_string": json_data,  # JSON string format
+        }
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
+## Usage example
+# bucket_name = 'your-bucket-name'
+# result = get_bucket_contents(bucket_name)
+#
+# if result:
+#    # Work with Python list of dictionaries
+#    for item in result['objects']:
+#        print(f"Processing file: {item['key']}")
+#        # Do something with the item...
+#
+#    # Or work with JSON string
+#    print(result['json_string'])
+#
+#    # Save to file if needed
+#    with open('bucket_contents.json', 'w') as f:
+#        json.dump(result['objects'], f, indent=2)
+#
+#    # Filter objects programmatically
+#    # Example: Get all .jpg files larger than 1MB
+#    large_images = [
+#        obj for obj in result['objects']
+#        if obj['key'].endswith('.jpg') and obj['size'] > 1000000
+#    ]
 
 
 @app.route("/public", methods=["POST"])
