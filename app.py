@@ -297,6 +297,66 @@ def delete():
         )
 
 
+@app.route("/delete/<path:key>", methods=["DELETE"])
+def delete_bucket_file(key):
+    # Auth validation
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    try:
+        # You might want to add validation for the key format
+        if not key:
+            return jsonify({"error": "No file key provided"}), 400
+
+        # If you need to extract bucket and filename from the key
+        # Assuming default bucket, modify as needed
+        bucket = "your-default-bucket"
+        file = key
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+
+        bucket = data.get("bucket")
+
+        # Attempt deletion
+        result = delete_from_r2_cloudflare(
+            CF_ENDPOINT,
+            CF_ACCESS_KEY,
+            CF_SECRET_KEY,
+            "auto",
+            bucket,
+            file,
+        )
+
+        # Handle deletion result
+        if result["success"]:
+            return (
+                jsonify({"message": result["message"], "key": key, "bucket": bucket}),
+                200,
+            )
+        else:
+            return jsonify(
+                {"error": result["message"], "key": key, "bucket": bucket}
+            ), (404 if "not found" in result["message"].lower() else 500)
+
+    except Exception as e:
+        return (
+            jsonify(
+                {
+                    "error": f"Unexpected error: {str(e)}",
+                    "details": traceback.format_exc(),
+                    "key": key,
+                }
+            ),
+            500,
+        )
+
+
 @app.route("/list", methods=["POST"])
 def list():
     auth_header = request.headers.get("Authorization")
