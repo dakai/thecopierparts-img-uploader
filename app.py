@@ -12,6 +12,8 @@ from colorthon import Colors as Fore
 from PIL import Image as PILImage
 from get_jpg_quality import get_jpg_quality
 from flask import Flask, request, jsonify, render_template
+from botocore.exceptions import ClientError
+import traceback
 
 load_dotenv()
 
@@ -231,7 +233,9 @@ def upload():
 
 
 @app.route("/delete", methods=["POST"])
+@app.route("/delete", methods=["POST"])
 def delete():
+    # Auth validation
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return jsonify({"error": "Authentication required"}), 401
@@ -241,11 +245,23 @@ def delete():
         return jsonify({"error": "Invalid API key"}), 401
 
     try:
-        # file = request.json.get("file")
+        # Get request data
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+
         file = data.get("filename")
         bucket = data.get("bucket")
-        delete_from_r2_cloudflare(
+
+        # Validate required fields
+        if not file or not bucket:
+            return (
+                jsonify({"error": "Missing required fields: filename and bucket"}),
+                400,
+            )
+
+        # Attempt deletion
+        result = delete_from_r2_cloudflare(
             CF_ENDPOINT,
             CF_ACCESS_KEY,
             CF_SECRET_KEY,
@@ -253,10 +269,32 @@ def delete():
             bucket,
             file,
         )
-    except Exception as e:
-        return jsonify({"error": f"Error deleting files: {str(e)}"}), 500
 
-    return jsonify({"message": "Files deleted successfully"}), 201
+        # Handle deletion result
+        if result["success"]:
+            return (
+                jsonify(
+                    {"message": result["message"], "filename": file, "bucket": bucket}
+                ),
+                200,
+            )
+        else:
+            return jsonify(
+                {"error": result["message"], "filename": file, "bucket": bucket}
+            ), (404 if "not found" in result["message"].lower() else 500)
+
+    except json.JSONDecodeError:
+        return jsonify({"error": "Invalid JSON format"}), 400
+    except Exception as e:
+        return (
+            jsonify(
+                {
+                    "error": f"Unexpected error: {str(e)}",
+                    "details": traceback.format_exc(),
+                }
+            ),
+            500,
+        )
 
 
 @app.route("/list", methods=["POST"])
@@ -675,19 +713,54 @@ def upload_to_r2_cloudflare(
 def delete_from_r2_cloudflare(
     endpoint_url, access_key_id, secret_key, region_name, remote_folder, file_name
 ):
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=endpoint_url,
-        aws_access_key_id=access_key_id,
-        aws_secret_access_key=secret_key,
-        region_name=region_name,
-    )
     try:
-        s3.delete_object(Bucket=remote_folder, Key=file_name)
-    except Exception as e:
-        print(f"Error deleting {file_name} from R2: {e}")
-    pass
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=endpoint_url,
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_key,
+            region_name=region_name,
+        )
 
+        # Check if file exists first
+        try:
+            s3.head_object(Bucket=remote_folder, Key=file_name)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return {
+                    "success": False,
+                    "message": f"File '{file_name}' not found in bucket '{remote_folder}'",
+                }
+            else:
+                return {"success": False, "message": f"Error checking file: {str(e)}"}
+
+        # If file exists, delete it
+        s3.delete_object(Bucket=remote_folder, Key=file_name)
+        return {
+            "success": True,
+            "message": f"Successfully deleted '{file_name}' from bucket '{remote_folder}'",
+        }
+
+    except ClientError as e:
+        return {"success": False, "message": f"AWS Error: {str(e)}"}
+    except Exception as e:
+        return {"success": False, "message": f"Unexpected error: {str(e)}"}
+
+
+# Usage example:
+# result = delete_from_r2_cloudflare(
+#    endpoint_url="https://your-endpoint.r2.cloudflarestorage.com",
+#    access_key_id="your_access_key",
+#    secret_key="your_secret_key",
+#    region_name="auto",
+#    remote_folder="your-bucket",
+#    file_name="path/to/file.txt"
+# )
+#
+# if result['success']:
+#    print(result['message'])
+# else:
+#    print(f"Error: {result['message']}")
 
 if __name__ == "__main__":
     app.run(debug=True)
