@@ -14,6 +14,7 @@ from get_jpg_quality import get_jpg_quality
 from flask import Flask, request, jsonify, render_template
 from botocore.exceptions import ClientError
 import traceback
+from werkzeug.utils import secure_filename
 
 load_dotenv()
 
@@ -233,7 +234,6 @@ def upload():
 
 
 @app.route("/delete", methods=["POST"])
-@app.route("/delete", methods=["POST"])
 def delete():
     # Auth validation
     auth_header = request.headers.get("Authorization")
@@ -407,132 +407,52 @@ def get_bucket_contents(
 #    ]
 
 
-@app.route("/public", methods=["POST"])
-def upload_public_photo():
+@app.route("/upload_original", methods=["POST"])
+def upload_original():
     # 1. Authentication Check
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return jsonify({"error": "Authentication required"}), 401
 
     api_key = auth_header.split("Bearer ")[1]
-    # print(api_key)
-    # print(API_KEY)
     if api_key != API_KEY:
         return jsonify({"error": "Invalid API key"}), 401
 
-    # try
+    bucket_name = request.form.get("bucket")
+    try:
+        uploaded_files = []
+        files = request.files.getlist("file")
+        if not files:
+            return jsonify({"error": "No file part in the request"}), 400
 
-    files = request.files.getlist("file")
-    uploaded_files = []
-    if not files:
-        return jsonify({"error": "No file part in the request"}), 400
+        for file in files:
+            if file.filename == "" or file.filename == None:
+                return jsonify({"error": "No selected file"}), 400
 
-    for file in files:
-        if file.filename == "":
-            return jsonify({"error": "No selected file"}), 400
+            filename = secure_filename(file.filename)
 
-        if file and allowed_file(file.filename):
-            filename = file.filename
             if not filename == None:
-                unique_filename = generate_unique_filename(filename)
-                # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
-                image_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
-                file.save(image_path)
+                file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                file.save(file_path)
                 # convert_webp(image_path)
-                uploaded_files.append(unique_filename)
+                uploaded_files.append(filename)
                 upload_to_r2_cloudflare(
                     CF_ENDPOINT,
                     CF_ACCESS_KEY,
                     CF_SECRET_KEY,
                     "auto",
-                    PRIVATE_BUCKET,
-                    image_path,
+                    bucket_name,
+                    file_path,
                 )
-                add_watermark_and_convert(image_path)
-                upload_watermark(unique_filename)
-                delete_file(image_path)
-        else:
-            return jsonify({"error": "File type not allowed"}), 400
-
+                delete_file(file_path)
+    except Exception as e:
+        return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
     return (
         jsonify(
             {"message": "All files uploaded successfully", "files": uploaded_files}
         ),
         201,
     )
-
-
-@app.route("/delete_public", methods=["POST"])
-def delete_public_photo():
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
-    try:
-        # file = request.json.get("file")
-        data = request.get_json()
-        file = data.get("filename")
-        delete_from_r2_cloudflare(
-            CF_ENDPOINT,
-            CF_ACCESS_KEY,
-            CF_SECRET_KEY,
-            "auto",
-            PUBLIC_BUCKET,
-            file,
-        )
-    except Exception as e:
-        return jsonify({"error": f"Error deleting files: {str(e)}"}), 500
-
-    return jsonify({"message": "Files deleted successfully"}), 201
-
-
-@app.route("/delete_private", methods=["POST"])
-def delete_private_photo():
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
-    try:
-        # file = request.json.get("file")
-        data = request.get_json()
-        file = data.get("filename")
-        delete_from_r2_cloudflare(
-            CF_ENDPOINT,
-            CF_ACCESS_KEY,
-            CF_SECRET_KEY,
-            "auto",
-            PRIVATE_BUCKET,
-            file,
-        )
-    except Exception as e:
-        return jsonify({"error": f"Error deleting files: {str(e)}"}), 500
-
-    return jsonify({"message": "Files deleted successfully"}), 201
-
-
-@app.route("/private", methods=["POST"])
-def upload_private_photo():
-    # 1. Authentication Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    print(api_key)
-    print(API_KEY)
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
-    # try
-    return jsonify({"message": "All files uploaded successfully"}), 201
 
 
 def upload_watermark(image_path):
