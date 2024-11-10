@@ -298,7 +298,7 @@ def delete():
 
 
 @app.route("/list", methods=["POST"])
-def list_content():
+def list():
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return jsonify({"error": "Authentication required"}), 401
@@ -319,14 +319,14 @@ def list_content():
             "auto",
         )
 
-        if result:
-            # Work with Python list of dictionaries
-            for item in result["objects"]:
-                print(f"Processing file: {item['key']}")
-                # Do something with the item...
+        # if result:
+        # Work with Python list of dictionaries
+        # for item in result["objects"]:
+        # print(f"Processing file: {item['key']}")
+        # Do something with the item...
 
-            # Or work with JSON string
-            print(result["json_string"])
+        # Or work with JSON string
+        # print(result["json_string"])
 
     except Exception as e:
         return jsonify({"error": f"Error listing files: {str(e)}"}), 500
