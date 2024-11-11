@@ -223,14 +223,17 @@ def upload():
                         image_path,
                     )
                     delete_file(image_path)
+            return (
+                jsonify(
+                    {
+                        "message": "All files uploaded successfully",
+                        "files": uploaded_files,
+                    }
+                ),
+                201,
+            )
         except Exception as e:
             return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
-        return (
-            jsonify(
-                {"message": "All files uploaded successfully", "files": uploaded_files}
-            ),
-            201,
-        )
 
 
 @app.route("/delete", methods=["POST"])
