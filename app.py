@@ -520,10 +520,10 @@ def upload_original():
 
 def upload_watermark(image_path):
     try:
-        name_without_extension = os.path.splitext(image_path)[0]
+        # name_without_extension = os.path.splitext(image_path)[0]
 
-        path = "output/" + name_without_extension + ".jpg"
-        webp_path = "output/" + name_without_extension + ".jpg.webp"
+        path = "output/" + image_path
+        webp_path = "output/" + image_path + ".webp"
 
         upload_to_r2_cloudflare(
             CF_ENDPOINT,
@@ -610,6 +610,7 @@ def add_watermark_and_convert(image_path):
             print(f"file path: {image_path}")
             basename = os.path.basename(image_path)
             name_without_extension = os.path.splitext(basename)[0]
+            extension = image_path.rsplit(".", 1)[1].lower()
 
             print(f"File Name: {basename}")
             if img.format == "jpeg":
@@ -651,10 +652,13 @@ def add_watermark_and_convert(image_path):
                         left=int((pic_width - watermark_width) / 2),
                         top=int((pic_height - watermark_height) / 2),
                     )
-            img.format = "jpg"
-            img.save(filename="output/" + name_without_extension + ".jpg")
+            # img.format = "jpg"
+            # img.save(filename="output/" + name_without_extension + ".jpg")
+            img.save(filename="output/" + name_without_extension + "." + extension)
             img.format = "webp"
-            img.save(filename="output/" + name_without_extension + ".jpg.webp")
+            img.save(
+                filename="output/" + name_without_extension + "." + extension + ".webp"
+            )
 
             print(f"Processed: {image_path}")
 
