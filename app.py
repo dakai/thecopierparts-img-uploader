@@ -620,10 +620,10 @@ def resize_image(img, compressed_rate):
 
     width, height = img.width, img.height
 
-    if width > height and width > 1920:  # Landscape/Horizontal
-        img.transform(resize="1920x")
-    elif height >= width and height > 1920:  # Portrait/Vertical
-        img.transform(resize="x1920")
+    if width > height and width > 800:  # Landscape/Horizontal
+        img.transform(resize="800x")
+    elif height >= width and height > 800:  # Portrait/Vertical
+        img.transform(resize="x800")
 
     if compressed_rate > 80:
         img.compression_quality = 80
