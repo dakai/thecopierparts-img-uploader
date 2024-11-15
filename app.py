@@ -14,11 +14,16 @@ from get_jpg_quality import get_jpg_quality
 from flask import Flask, request, jsonify, render_template
 from botocore.exceptions import ClientError
 import traceback
+from flask import Response
 from werkzeug.utils import secure_filename
+from flask_cors import CORS  # Import CORS
 
 load_dotenv()
 
 CF_API_TOKEN = os.getenv("CF_API_TOKEN")
+ALLOW_HOSTS = os.getenv("ALLOW_HOSTS", "*").split(
+    ","
+)  # Get allowed origins from env, default to all
 CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID")
 CF_ACCESS_KEY = os.getenv("CF_ACCESS_KEY")
 CF_SECRET_KEY = os.getenv("CF_SECRET_KEY")
@@ -30,10 +35,62 @@ PUBLIC_BUCKET = "your_public_bucket"
 PRIVATE_BUCKET = "your_private_bucket"
 
 app = Flask(__name__)
+cors = CORS(
+    app, origins=ALLOW_HOSTS, supports_credentials=True
+)  # Initialize CORS with allowed origins
 
 UPLOAD_FOLDER = "uploads"  # Folder to store uploaded files
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "tif"}  # Allowed image extensions
+
+
+@app.route("/image/<path:image_path>")
+def serve_image(image_path):
+    # 1. Authentication Check
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    # data = request.get_json()
+    # file = data.get("filename")
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    """Serves images from R2 storage."""
+    try:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=CF_ENDPOINT,
+            aws_access_key_id=CF_ACCESS_KEY,
+            aws_secret_access_key=CF_SECRET_KEY,
+            region_name="auto",
+        )
+
+        bucket_name = PRIVATE_BUCKET
+        # Fetch the image from R2
+        response = s3.get_object(Bucket=bucket_name, Key=image_path)
+        image_data = response["Body"].read()
+
+        # Determine content type based on the file extension (you can expand this)
+        content_type = "image/jpeg"  # Default
+        if image_path.endswith(".png"):
+            content_type = "image/png"
+        elif image_path.endswith(".webp"):
+            content_type = "image/webp"
+
+        return Response(image_data, content_type=content_type)
+
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchKey":
+            return (
+                jsonify({"error": "Image not found"}),
+                404,
+            )  # Return 404 if image not found
+        else:
+            return jsonify({"error": f"Error fetching image: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 
 def generate_random_filename(length, extension):
