@@ -806,5 +806,72 @@ def delete_from_r2_cloudflare(
 # else:
 #    print(f"Error: {result['message']}")
 
+
+@app.route("/check_file_exists", methods=["GET"])
+def check_file_exists():
+    # 1. Authentication Check
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    # data = request.get_json()
+    # file = data.get("filename")
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    """
+    Check if a file exists in a specified bucket.
+    
+    Query Parameters:
+    - filename: Name of the file to check
+    - bucket: Name of the bucket to check (optional, defaults to PUBLIC_BUCKET)
+    
+    Returns:
+    JSON response with file existence status
+    """
+    # Get query parameters
+    filename = request.args.get("filename")
+    bucket = request.args.get("bucket", PUBLIC_BUCKET)
+
+    # Validate input
+    if not filename:
+        return jsonify({"error": "Filename is required"}), 400
+
+    try:
+        # Create S3 client
+        s3_client = boto3.client(
+            "s3",
+            endpoint_url=CF_ENDPOINT,
+            aws_access_key_id=CF_ACCESS_KEY,
+            aws_secret_access_key=CF_SECRET_KEY,
+        )
+
+        # Check if file exists
+        try:
+            s3_client.head_object(Bucket=bucket, Key=filename)
+            return (
+                jsonify({"exists": True, "filename": filename, "bucket": bucket}),
+                200,
+            )
+        except s3_client.exceptions.ClientError as e:
+            # If a 404 error is raised, the file does not exist
+            if e.response["Error"]["Code"] == "404":
+                return (
+                    jsonify({"exists": False, "filename": filename, "bucket": bucket}),
+                    404,
+                )
+            # If it's another type of error, raise it
+            raise
+
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error checking file existence: {str(e)}")
+        return (
+            jsonify({"error": "Failed to check file existence", "details": str(e)}),
+            500,
+        )
+
+
 if __name__ == "__main__":
     app.run(debug=True)
