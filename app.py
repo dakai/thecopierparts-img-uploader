@@ -102,7 +102,10 @@ def generate_random_filename(length, extension):
 
 def allowed_file(filename):
     """Checks if the file extension is allowed."""
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    if not filename:
+        return False
+    _, file_extension = os.path.splitext(filename)
+    return file_extension[1:].lower() in ALLOWED_EXTENSIONS
 
 
 def check_if_file_exists(file_path):
