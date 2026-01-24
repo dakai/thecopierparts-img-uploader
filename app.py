@@ -579,12 +579,24 @@ def upload_original():
 
 
 def upload_watermark(image_path):
+    """Uploads watermarked images and thumbnails to public bucket.
+
+    Generates and uploads:
+    - Original size watermarked image (JPG/PNG/etc)
+    - Original size watermarked WebP
+    - 320px thumbnail (JPG/PNG/etc + WebP) - NO watermark
+    - 640px thumbnail (JPG/PNG/etc + WebP) - NO watermark
+    """
     try:
-        # name_without_extension = os.path.splitext(image_path)[0]
+        basename = os.path.basename(image_path)
+        name_without_extension = os.path.splitext(basename)[0]
+        extension = image_path.rsplit(".", 1)[1].lower()
 
-        path = "output/" + image_path
-        webp_path = "output/" + image_path + ".webp"
+        # Paths for watermarked full-size images
+        path = "output/" + basename
+        webp_path = f"output/{basename}.webp"
 
+        # Upload full-size watermarked images
         upload_to_r2_cloudflare(
             CF_ENDPOINT,
             CF_ACCESS_KEY,
@@ -602,6 +614,21 @@ def upload_watermark(image_path):
             path,
         )
 
+        # Generate and upload thumbnails (without watermarks)
+        thumbnail_paths = generate_thumbnails("uploads/" + basename, sizes=[320, 640])
+
+        for thumb_path in thumbnail_paths:
+            upload_to_r2_cloudflare(
+                CF_ENDPOINT,
+                CF_ACCESS_KEY,
+                CF_SECRET_KEY,
+                "auto",
+                PUBLIC_BUCKET,
+                thumb_path,
+            )
+            delete_file(thumb_path)
+
+        # Clean up watermarked files
         delete_file(path)
         delete_file(webp_path)
 
@@ -632,6 +659,68 @@ def resize_image(img, compressed_rate):
         img.compression_quality = 80
 
     return img  # Return resized or original image data
+
+
+def generate_thumbnails(image_path, sizes=[320, 640]):
+    """Generates thumbnail variants without watermarks.
+
+    Args:
+        image_path: Path to the original image in uploads folder
+        sizes: List of thumbnail widths to generate (default: [320, 640])
+
+    Returns:
+        List of generated thumbnail file paths
+    """
+    try:
+        thumbnail_paths = []
+        basename = os.path.basename(image_path)
+        name_without_extension = os.path.splitext(basename)[0]
+        extension = image_path.rsplit(".", 1)[1].lower()
+
+        with Image(filename=image_path) as img:
+            # Get quality for JPEG images
+            if img.format == "jpeg":
+                pim = PILImage.open(image_path)
+                quality = get_jpg_quality(pim)
+            else:
+                quality = 100
+
+            img.auto_orient()
+
+            # Set compression quality
+            if quality > 80:
+                img.compression_quality = 80
+            else:
+                img.compression_quality = quality
+
+            # Generate each thumbnail size
+            for size in sizes:
+                # Clone the image for each size
+                with img.clone() as thumb:
+                    # Resize to target width, maintaining aspect ratio
+                    thumb.transform(resize=f"{size}x")
+
+                    # Save as original format with size suffix
+                    output_filename = f"{name_without_extension}-{size}.{extension}"
+                    output_path = f"output/{output_filename}"
+                    thumb.save(filename=output_path)
+                    thumbnail_paths.append(output_path)
+                    print(f"Generated thumbnail: {output_filename}")
+
+                    # Also save as WebP with size suffix
+                    with thumb.clone() as webp_thumb:
+                        webp_thumb.format = "webp"
+                        webp_output_filename = f"{name_without_extension}-{size}.webp"
+                        webp_output_path = f"output/{webp_output_filename}"
+                        webp_thumb.save(filename=webp_output_path)
+                        thumbnail_paths.append(webp_output_path)
+                        print(f"Generated WebP thumbnail: {webp_output_filename}")
+
+        return thumbnail_paths
+
+    except Exception as e:
+        print(f"Error generating thumbnails for {image_path}: {e}")
+        return []
 
 
 def delete_file(file_path):
