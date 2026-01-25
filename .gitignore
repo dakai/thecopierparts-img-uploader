@@ -13,3 +13,6 @@ Formatter*
 *.jpg
 *.tif
 !.env.local
+*.log
+migration_temp/
+migration_state.json
