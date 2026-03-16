@@ -42,6 +42,15 @@ curl -H "Authorization: Bearer token" https://url/list \
 -d '{"bucket":"bucketname"}'
 ```
 
+### Fetch a file
+
+```
+curl -X POST -H "Authorization: Bearer token" \
+-H "Content-Type: application/json" \
+-d '{"bucket": "bucketname", "filename": "filename"}' \
+https://url/fetch --output downloaded_file.jpg
+```
+
 ### Upload files without altering any names
 
 ```

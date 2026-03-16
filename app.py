@@ -420,6 +420,53 @@ def delete_bucket_file(key):
         )
 
 
+@app.route("/fetch", methods=["POST"])
+def fetch_file():
+    # 1. Authentication Check
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON data provided"}), 400
+
+    bucket_name = data.get("bucket")
+    file_path = data.get("filename")
+
+    if not bucket_name or not file_path:
+        return jsonify({"error": "Missing bucket or filename"}), 400
+
+    try:
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=CF_ENDPOINT,
+            aws_access_key_id=CF_ACCESS_KEY,
+            aws_secret_access_key=CF_SECRET_KEY,
+            region_name="auto",
+        )
+
+        # Fetch the file from R2
+        response = s3.get_object(Bucket=bucket_name, Key=file_path)
+        file_data = response["Body"].read()
+
+        # Get content type from response or fallback
+        content_type = response.get("ContentType", "application/octet-stream")
+
+        return Response(file_data, content_type=content_type)
+
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchKey":
+            return jsonify({"error": "File not found"}), 404
+        return jsonify({"error": f"Error fetching file: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
+
 @app.route("/list", methods=["POST"])
 def list():
     auth_header = request.headers.get("Authorization")
