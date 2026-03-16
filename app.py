@@ -478,25 +478,17 @@ def list():
         return jsonify({"error": "Invalid API key"}), 401
 
     try:
-        # file = request.json.get("file")
         data = request.get_json()
         bucket = data.get("bucket")
+        prefix = data.get("prefix", "")  # Get optional prefix
         result = get_bucket_contents(
             bucket,
             CF_ENDPOINT,
             CF_ACCESS_KEY,
             CF_SECRET_KEY,
             "auto",
+            prefix=prefix,
         )
-
-        # if result:
-        # Work with Python list of dictionaries
-        # for item in result["objects"]:
-        # print(f"Processing file: {item['key']}")
-        # Do something with the item...
-
-        # Or work with JSON string
-        # print(result["json_string"])
 
     except Exception as e:
         return jsonify({"error": f"Error listing files: {str(e)}"}), 500
@@ -510,6 +502,7 @@ def get_bucket_contents(
     access_key_id,
     secret_key,
     region_name,
+    prefix="",
 ):
     s3 = boto3.client(
         "s3",
@@ -522,7 +515,8 @@ def get_bucket_contents(
 
     try:
         paginator = s3.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=bucket_name)
+        # Add prefix to pagination
+        pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
 
         for page in pages:
             for obj in page.get("Contents", []):
