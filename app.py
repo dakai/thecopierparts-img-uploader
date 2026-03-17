@@ -619,6 +619,71 @@ def upload_original():
     )
 
 
+@app.route("/upload_custom", methods=["POST"])
+def upload_custom():
+    # 1. Authentication Check
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authentication required"}), 401
+
+    api_key = auth_header.split("Bearer ")[1]
+    if api_key != API_KEY:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    bucket_name = request.form.get("bucket")
+    custom_path = request.form.get("path", "").strip("/")
+
+    if not bucket_name:
+        return jsonify({"error": "Bucket name is required"}), 400
+
+    try:
+        uploaded_files = []
+        files = request.files.getlist("file")
+        if not files:
+            return jsonify({"error": "No file part in the request"}), 400
+
+        for file in files:
+            if file.filename == "" or file.filename == None:
+                continue
+
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            file.save(file_path)
+
+            # Construct the S3 key (path + filename)
+            remote_key = f"{custom_path}/{filename}" if custom_path else filename
+
+            upload_to_r2_cloudflare(
+                CF_ENDPOINT,
+                CF_ACCESS_KEY,
+                CF_SECRET_KEY,
+                "auto",
+                bucket_name,
+                file_path,
+                remote_key=remote_key,
+            )
+            delete_file(file_path)
+            uploaded_files.append(
+                {"filename": filename, "key": remote_key, "bucket": bucket_name}
+            )
+
+    except Exception as e:
+        return (
+            jsonify(
+                {
+                    "error": f"Error uploading files: {str(e)}",
+                    "details": traceback.format_exc(),
+                }
+            ),
+            500,
+        )
+
+    return (
+        jsonify({"message": "Files uploaded successfully", "files": uploaded_files}),
+        201,
+    )
+
+
 def upload_watermark(image_path):
     """Uploads watermarked images and thumbnails to public bucket.
 
@@ -857,7 +922,13 @@ def add_watermark_and_convert(image_path):
 
 
 def upload_to_r2_cloudflare(
-    endpoint_url, access_key_id, secret_key, region_name, remote_folder, local_file
+    endpoint_url,
+    access_key_id,
+    secret_key,
+    region_name,
+    remote_folder,
+    local_file,
+    remote_key=None,
 ):
     s3 = boto3.client(
         "s3",
@@ -868,6 +939,9 @@ def upload_to_r2_cloudflare(
     )
 
     file_name = os.path.basename(local_file)
+    if remote_key is None:
+        remote_key = file_name
+
     file_size = os.path.getsize(local_file)
     print(f"File Name: {Fore.GREY}{file_name}{Fore.RESET}")
     print(
@@ -883,7 +957,7 @@ def upload_to_r2_cloudflare(
     ) as pbar:
         with open(local_file, "rb") as f:
             s3.upload_fileobj(
-                f, remote_folder, file_name, Callback=lambda x: pbar.update(x)
+                f, remote_folder, remote_key, Callback=lambda x: pbar.update(x)
             )
 
 
