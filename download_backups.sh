@@ -44,39 +44,68 @@ fi
 # Extract keys using jq
 FILES=$(echo "$LIST_RESPONSE" | jq -r '.objects[].key')
 
-if [ -z "$FILES" ]; then
-    echo "No files found matching that path."
+if [ -z "$FILES" ] || [ "$FILES" == "null" ]; then
+    echo "No files found matching that path. Skipping synchronization."
     exit 0
 fi
 
-# Count files
-FILE_COUNT=$(echo "$FILES" | wc -l)
-echo "Found ${FILE_COUNT} files. Starting download..."
+# Ensure download directory exists
+mkdir -p "$DOWNLOAD_DIR"
 
-# 2. Fetch each file
+# 1. Remove local files that are NOT in the bucket list
+echo "Cleaning up local files not present in the bucket..."
+# Get list of local filenames
+LOCAL_FILES=$(ls "$DOWNLOAD_DIR")
+
+for LOCAL_FILE in $LOCAL_FILES; do
+    FOUND=false
+    for REMOTE_FILE in $FILES; do
+        REMOTE_BASENAME=$(basename "$REMOTE_FILE")
+        # Apply the same transformation as we do for downloading
+        SAFE_REMOTE_NAME="${REMOTE_BASENAME//:/-}"
+        
+        if [ "$LOCAL_FILE" == "$SAFE_REMOTE_NAME" ]; then
+            FOUND=true
+            break
+        fi
+    done
+    
+    if [ "$FOUND" = false ]; then
+        echo "   Removing outdated local file: ${LOCAL_FILE}"
+        rm "${DOWNLOAD_DIR}${LOCAL_FILE}"
+    fi
+done
+
+# 2. Download missing files
+FILE_COUNT=$(echo "$FILES" | wc -l)
+echo "Found ${FILE_COUNT} files in bucket. Syncing..."
+
 CURRENT_FILE=1
 for FILE in $FILES; do
-    # Get just the filename (after the last /)
-    LOCAL_FILENAME=$(basename "$FILE")
+    REMOTE_BASENAME=$(basename "$FILE")
+    # Replace ':' with '-' for the local filename
+    LOCAL_FILENAME="${REMOTE_BASENAME//:/-}"
     LOCAL_PATH="${DOWNLOAD_DIR}${LOCAL_FILENAME}"
 
-    echo "[${CURRENT_FILE}/${FILE_COUNT}] Downloading: ${LOCAL_FILENAME}..."
-    
-    # We use a POST to /fetch as implemented in the API
-    # Using -f to fail on server errors and -o to save to file
-    curl -s -f -X POST "${API_URL}/fetch" \
-        -H "Authorization: Bearer ${API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d "{
-            \"bucket\": \"${BUCKET}\",
-            \"filename\": \"${FILE}\"
-        }" \
-        -o "$LOCAL_PATH"
-
-    if [ $? -eq 0 ]; then
-        echo "   Success: Saved to ${LOCAL_PATH}"
+    if [ -f "$LOCAL_PATH" ]; then
+        echo "[${CURRENT_FILE}/${FILE_COUNT}] Skipping: ${LOCAL_FILENAME} (Already exists)"
     else
-        echo "   Error: Failed to download ${FILE}"
+        echo "[${CURRENT_FILE}/${FILE_COUNT}] Downloading: ${REMOTE_BASENAME} as ${LOCAL_FILENAME}..."
+        
+        curl -s -f -X POST "${API_URL}/fetch" \
+            -H "Authorization: Bearer ${API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"bucket\": \"${BUCKET}\",
+                \"filename\": \"${FILE}\"
+            }" \
+            -o "$LOCAL_PATH"
+
+        if [ $? -eq 0 ]; then
+            echo "   Success: Saved to ${LOCAL_PATH}"
+        else
+            echo "   Error: Failed to download ${FILE}"
+        fi
     fi
     
     ((CURRENT_FILE++))
