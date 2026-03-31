@@ -3,9 +3,11 @@ import boto3
 import random
 import string
 import json
+import gc
 from tqdm import tqdm
 from wand.image import Image
 from wand.color import Color
+from wand.resource import limits
 from dotenv import load_dotenv
 from wand.drawing import Drawing
 from colorthon import Colors as Fore
@@ -17,6 +19,10 @@ import traceback
 from flask import Response
 from werkzeug.utils import secure_filename
 from flask_cors import CORS  # Import CORS
+
+# Set ImageMagick resource limits to prevent OOM
+limits["memory"] = 512 * 1024 * 1024  # 512MB
+limits["map"] = 1024 * 1024 * 1024  # 1GB
 
 load_dotenv()
 
@@ -213,6 +219,7 @@ def upload():
                         print(f"Uploading watermarked to R2: {PUBLIC_BUCKET}")
                         upload_watermark(unique_filename)
                         delete_file(image_path)
+                        gc.collect()  # Force garbage collection
                 else:
                     print(f"Error: File type not allowed for {file.filename}")
                     return jsonify({"error": "File type not allowed"}), 400
