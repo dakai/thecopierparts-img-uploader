@@ -170,19 +170,26 @@ def upload():
 
     # bucket_name = data.get("bucket")
     bucket_name = request.form.get("bucket")
+    print(f"--- Upload Start ---")
+    print(f"Bucket Name: {bucket_name}")
+    print(f"Files in request: {request.files}")
+
     if bucket_name == "your_public_bucket":
         try:
             uploaded_files = []
             files = request.files.getlist("file")
             if not files:
+                print("Error: No file part in the request")
                 return jsonify({"error": "No file part in the request"}), 400
 
             for file in files:
                 if file.filename == "":
+                    print("Error: No selected file")
                     return jsonify({"error": "No selected file"}), 400
 
                 if file and allowed_file(file.filename):
                     filename = file.filename
+                    print(f"Processing file: {filename}")
                     if not filename == None:
                         unique_filename = generate_unique_filename(filename)
                         # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
@@ -192,6 +199,7 @@ def upload():
                         file.save(image_path)
                         # convert_webp(image_path)
                         uploaded_files.append(unique_filename)
+                        print(f"Uploading original to R2: {PRIVATE_BUCKET}/{unique_filename}")
                         upload_to_r2_cloudflare(
                             CF_ENDPOINT,
                             CF_ACCESS_KEY,
@@ -200,13 +208,17 @@ def upload():
                             PRIVATE_BUCKET,  # Save as a none watermarked backup
                             image_path,
                         )
+                        print(f"Adding watermark and converting: {image_path}")
                         add_watermark_and_convert(image_path)
+                        print(f"Uploading watermarked to R2: {PUBLIC_BUCKET}")
                         upload_watermark(unique_filename)
                         delete_file(image_path)
                 else:
+                    print(f"Error: File type not allowed for {file.filename}")
                     return jsonify({"error": "File type not allowed"}), 400
 
         except Exception as e:
+            traceback.print_exc()
             return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
         return (
             jsonify(
@@ -219,14 +231,17 @@ def upload():
             uploaded_files = []
             files = request.files.getlist("file")
             if not files:
+                print("Error: No file part in the request (private)")
                 return jsonify({"error": "No file part in the request"}), 400
 
             for file in files:
                 if file.filename == "":
+                    print("Error: No selected file (private)")
                     return jsonify({"error": "No selected file"}), 400
 
                 if file and allowed_file(file.filename):
                     filename = file.filename
+                    print(f"Processing private file: {filename}")
                     if not filename == None:
                         unique_filename = generate_unique_filename(filename)
                         # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
@@ -236,6 +251,7 @@ def upload():
                         file.save(image_path)
                         # convert_webp(image_path)
                         uploaded_files.append(unique_filename)
+                        print(f"Uploading to private R2: {bucket_name}/{unique_filename}")
                         upload_to_r2_cloudflare(
                             CF_ENDPOINT,
                             CF_ACCESS_KEY,
@@ -247,6 +263,7 @@ def upload():
                         delete_file(image_path)
 
         except Exception as e:
+            traceback.print_exc()
             return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
         return (
             jsonify(
@@ -256,16 +273,20 @@ def upload():
         )
     else:
         try:
+            print(f"Processing other bucket: {bucket_name}")
             uploaded_files = []
             files = request.files.getlist("file")
             if not files:
+                print("Error: No file part in the request (other)")
                 return jsonify({"error": "No file part in the request"}), 400
 
             for file in files:
                 if file.filename == "":
+                    print("Error: No selected file (other)")
                     return jsonify({"error": "No selected file"}), 400
 
                 filename = file.filename
+                print(f"Processing other file: {filename}")
                 if not filename == None:
                     unique_filename = generate_unique_document_filename(filename)
                     image_path = os.path.join(
@@ -274,6 +295,7 @@ def upload():
                     file.save(image_path)
                     # convert_webp(image_path)
                     uploaded_files.append(unique_filename)
+                    print(f"Uploading to R2: {bucket_name}/{unique_filename}")
                     upload_to_r2_cloudflare(
                         CF_ENDPOINT,
                         CF_ACCESS_KEY,
@@ -293,6 +315,7 @@ def upload():
                 201,
             )
         except Exception as e:
+            traceback.print_exc()
             return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
 
 
