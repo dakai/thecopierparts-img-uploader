@@ -16,6 +16,7 @@ from get_jpg_quality import get_jpg_quality
 from flask import Flask, request, jsonify, render_template
 from botocore.exceptions import ClientError
 import traceback
+import subprocess
 from flask import Response
 from werkzeug.utils import secure_filename
 from flask_cors import CORS  # Import CORS
@@ -844,13 +845,35 @@ def generate_thumbnails(image_path, sizes=[320, 640]):
                     print(f"Generated thumbnail: {output_filename}")
 
                     # Also save as WebP with size suffix
-                    with thumb.clone() as webp_thumb:
-                        webp_thumb.format = "webp"
-                        webp_output_filename = f"{name_without_extension}-{size}.webp"
-                        webp_output_path = f"output/{webp_output_filename}"
-                        webp_thumb.save(filename=webp_output_path)
+                    webp_output_filename = f"{name_without_extension}-{size}.webp"
+                    webp_output_path = f"output/{webp_output_filename}"
+                    
+                    try:
+                        # Use cwebp for better compression
+                        # For 320px, we target 8KB (8192 bytes)
+                        # For others, we use high quality settings
+                        cwebp_cmd = [
+                            "cwebp",
+                            "-m", "6",
+                            "-pass", "10",
+                            "-quiet",
+                            output_path,
+                            "-o", webp_output_path
+                        ]
+                        
+                        if size == 320:
+                            cwebp_cmd.extend(["-size", "8192"])
+                        
+                        subprocess.run(cwebp_cmd, check=True)
                         thumbnail_paths.append(webp_output_path)
-                        print(f"Generated WebP thumbnail: {webp_output_filename}")
+                        print(f"Generated WebP thumbnail (cwebp): {webp_output_filename}")
+                    except Exception as e:
+                        print(f"cwebp failed for {webp_output_filename}, falling back to Wand: {e}")
+                        with thumb.clone() as webp_thumb:
+                            webp_thumb.format = "webp"
+                            webp_thumb.save(filename=webp_output_path)
+                            thumbnail_paths.append(webp_output_path)
+                            print(f"Generated WebP thumbnail (Wand fallback): {webp_output_filename}")
 
         return thumbnail_paths
 

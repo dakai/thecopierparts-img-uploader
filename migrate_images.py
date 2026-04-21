@@ -42,6 +42,7 @@ from PIL import Image as PILImage
 from get_jpg_quality import get_jpg_quality
 import time
 import traceback
+import subprocess
 from dotenv import load_dotenv
 
 # Load environment
@@ -379,18 +380,39 @@ def process_single_file(
 
             # Generate WebP thumbnail
             webp_output = os.path.join(TEMP_DIR, f"{base_name}-{size}.webp")
-            if generate_thumbnail(source_file, webp_output, size, logger):
-                # Convert to WebP
-                with Image(filename=webp_output) as img:
-                    img.format = "webp"
-                    img.save(filename=webp_output)
-
+            # Use the already generated original-format thumbnail as source for cwebp
+            try:
+                cwebp_cmd = [
+                    "cwebp",
+                    "-m", "6",
+                    "-pass", "10",
+                    "-quiet",
+                    orig_output,
+                    "-o", webp_output
+                ]
+                if size == 320:
+                    cwebp_cmd.extend(["-size", "8192"]) # Target 8 KiB
+                
+                subprocess.run(cwebp_cmd, check=True)
+                
                 s3_client.upload_file(
                     webp_output, public_bucket, f"{base_name}-{size}.webp"
                 )
-                logger.log("SUCCESS", f"Uploaded {base_name}-{size}.webp")
+                logger.log("SUCCESS", f"Uploaded {base_name}-{size}.webp (via cwebp)")
                 uploaded_files.append(webp_output)
                 generated_count += 1
+            except Exception as e:
+                logger.log("WARN", f"cwebp failed for {webp_output}, falling back to Wand: {e}")
+                if generate_thumbnail(source_file, webp_output, size, logger):
+                    with Image(filename=webp_output) as img:
+                        img.format = "webp"
+                        img.save(filename=webp_output)
+                    s3_client.upload_file(
+                        webp_output, public_bucket, f"{base_name}-{size}.webp"
+                    )
+                    logger.log("SUCCESS", f"Uploaded {base_name}-{size}.webp (Wand fallback)")
+                    uploaded_files.append(webp_output)
+                    generated_count += 1
 
         operations.append(f"generate_{generated_count}_thumbnails")
 
