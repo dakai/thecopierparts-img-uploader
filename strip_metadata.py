@@ -34,26 +34,30 @@ PUBLIC_BUCKET = "your_public_bucket"
 TEMP_DIR = "strip_temp"
 IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff')
 
+def check_metadata(file_path):
+    """Check if the image has any profiles or comments using identify."""
+    try:
+        # identify -format "%[profiles]%[comment]" returns names of profiles/comments
+        cmd = ["identify", "-format", "%[profiles]%[comment]", file_path]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return len(result.stdout.strip()) > 0
+    except Exception:
+        return True # Fallback to true if identify fails
+
 def strip_metadata(file_path):
     """Remove all metadata from the image using ImageMagick mogrify."""
     try:
-        # Get size before
         size_before = os.path.getsize(file_path)
-        
-        # -strip: removes all profiles and comments
-        # mogrify modifies the file in place
         cmd = ["mogrify", "-strip", file_path]
         subprocess.run(cmd, check=True)
-        
-        # Get size after
         size_after = os.path.getsize(file_path)
-        
         return True, size_before, size_after
     except Exception as e:
         print(f"Error stripping {file_path}: {e}")
         return False, 0, 0
 
 def main():
+    # ... rest of setup ...
     parser = argparse.ArgumentParser(description="Strip metadata from all images in public bucket")
     parser.add_argument("--dry-run", action="store_true", help="Report files without modifying")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of files to process")
@@ -119,17 +123,22 @@ def main():
         try:
             s3.download_file(PUBLIC_BUCKET, key, local_path)
             
-            success, before, after = strip_metadata(local_path)
-            
-            if success:
-                saved = before - after
-                # Only upload if we actually saved space (or to be safe, always upload if not dry-run)
-                if saved > 0:
+            # 1. Check if metadata exists first
+            if check_metadata(local_path):
+                # 2. Strip it
+                success, before, after = strip_metadata(local_path)
+                
+                if success:
+                    saved = before - after
+                    # 3. Upload only if modified
                     s3.upload_file(local_path, PUBLIC_BUCKET, key)
                     total_saved_bytes += saved
                     print(f"[{i+1}/{total_files}] {key:<42} | {saved/1024:>7.2f} KiB | [STRIPPED]")
                 else:
-                    print(f"[{i+1}/{total_files}] {key:<42} |    0.00 KiB | [NO METADATA]")
+                    print(f"[{i+1}/{total_files}] {key:<42} |    -- KiB | [ERROR]")
+            else:
+                # No metadata found, skip upload
+                print(f"[{i+1}/{total_files}] {key:<42} |    0.00 KiB | [CLEAN]")
             
             processed_count += 1
             
