@@ -17,3 +17,6 @@ Formatter*
 *.log
 migration_temp/
 migration_state.json
+
+.omp/
+.codegraph/
