@@ -13,7 +13,7 @@ Formatter*
 *.png
 *.jpg
 *.tif
-!.env.local
+*.avif
 *.log
 migration_temp/
 migration_state.json

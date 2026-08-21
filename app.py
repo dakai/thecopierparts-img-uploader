@@ -48,7 +48,7 @@ cors = CORS(
 
 UPLOAD_FOLDER = "uploads"  # Folder to store uploaded files
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "tif"}  # Allowed image extensions
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "tif", "avif"}  # Allowed image extensions
 
 
 @app.route("/image/<path:image_path>")
