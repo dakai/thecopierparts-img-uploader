@@ -31,7 +31,6 @@ Client --Bearer auth--> Flask (app.py) --boto3--> R2 (public/private buckets)
 | `strip_metadata.py` / `strip_temp/` | EXIF/metadata stripping utility |
 | `optimize_thumbnails.py` / `optimization_temp/` | Thumbnail optimization |
 | `get_jpg_quality.py` | JPEG quality detection helper |
-| `templates/index.html` | Minimal home page |
 | `uploads/` / `output/` | Local temp dirs (gitignored via `*.jpg` etc.) |
 | `migration_temp/` | Migration temp downloads (gitignored) |
 | `Dockerfile` / `gunicorn.py` | Container + server config |

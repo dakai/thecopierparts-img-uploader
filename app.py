@@ -13,7 +13,7 @@ from wand.drawing import Drawing
 from colorthon import Colors as Fore
 from PIL import Image as PILImage
 from get_jpg_quality import get_jpg_quality
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
 from botocore.exceptions import ClientError
 import traceback
 import subprocess
@@ -151,11 +151,6 @@ def generate_unique_document_filename(filename):
             filename_without_extension + "_" + unique_filename,
         )
     return filename_without_extension + "_" + unique_filename
-
-
-@app.route("/")
-def home():
-    return render_template("index.html")
 
 
 if __name__ == "__main__":
