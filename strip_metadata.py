@@ -13,13 +13,14 @@ Usage:
     python strip_metadata.py
 """
 
-import os
-import sys
-import boto3
 import argparse
-import time
+import os
 import subprocess
-from datetime import datetime
+import sys
+import time
+from datetime import UTC, datetime
+
+import boto3
 from dotenv import load_dotenv
 
 # Load environment
@@ -76,8 +77,10 @@ def main():
         region_name="auto",
     )
 
-    print(f"[{datetime.now().isoformat()}] Listing all files in {PUBLIC_BUCKET}...")
-    
+    print(
+        f"[{datetime.now(UTC).isoformat()}] Listing all files in {PUBLIC_BUCKET}..."
+    )
+
     paginator = s3.get_paginator("list_objects_v2")
     pages = paginator.paginate(Bucket=PUBLIC_BUCKET, Prefix=args.prefix)
 
@@ -95,7 +98,7 @@ def main():
         files_to_process = files_to_process[:args.limit]
 
     print(f"Found {len(files_to_process)} image files.")
-    
+
     if not os.path.exists(TEMP_DIR):
         os.makedirs(TEMP_DIR)
 
@@ -108,11 +111,11 @@ def main():
 
     for i, file_info in enumerate(files_to_process):
         key = file_info["key"]
-        
+
         if args.dry_run:
             print(f"[{i+1}/{total_files}] {key:<42} | -- | [PENDING]")
             continue
-            
+
         # Download
         local_path = os.path.join(TEMP_DIR, os.path.basename(key))
         # Handle subdirectories in keys
@@ -122,12 +125,12 @@ def main():
 
         try:
             s3.download_file(PUBLIC_BUCKET, key, local_path)
-            
+
             # 1. Check if metadata exists first
             if check_metadata(local_path):
                 # 2. Strip it
                 success, before, after = strip_metadata(local_path)
-                
+
                 if success:
                     saved = before - after
                     # 3. Upload only if modified
@@ -139,21 +142,21 @@ def main():
             else:
                 # No metadata found, skip upload
                 print(f"[{i+1}/{total_files}] {key:<42} |    0.00 KiB | [CLEAN]")
-            
+
             processed_count += 1
-            
+
         except Exception as e:
             print(f"Error processing {key}: {e}")
         finally:
             if os.path.exists(local_path):
                 os.remove(local_path)
-            
+
         # Small rate limiting to be nice to the API
         if i % 10 == 0:
             time.sleep(0.05)
 
     print("\n" + "=" * 60)
-    print(f"Summary:")
+    print("Summary:")
     print(f"  Total images found: {total_files}")
     if not args.dry_run:
         print(f"  Total space saved: {total_saved_bytes / 1024 / 1024:.2f} MB")

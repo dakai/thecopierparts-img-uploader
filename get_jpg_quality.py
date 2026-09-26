@@ -12,7 +12,7 @@ def get_jpg_quality(pim) -> int:
 
     qsum = 0
     qdict = pim.quantization
-    for i, qtable in qdict.items():
+    for qtable in qdict.values():
         qsum += sum(qtable)
 
     if len(qdict) >= 1:

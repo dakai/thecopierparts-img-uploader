@@ -12,13 +12,14 @@ Usage:
     python optimize_thumbnails.py
 """
 
-import os
-import sys
-import boto3
 import argparse
-import time
+import os
 import subprocess
-from datetime import datetime
+import sys
+import time
+from datetime import UTC, datetime
+
+import boto3
 from dotenv import load_dotenv
 
 # Load environment
@@ -44,9 +45,9 @@ def optimize_webp(file_path, target_bytes=8192):
         return False, current_size / 1024.0
 
     output_path = file_path + ".tmp.webp"
-    
+
     try:
-        # cwebp command: 
+        # cwebp command:
         # -size: target size in bytes
         # -m 6: best compression method
         # -pass 10: more analysis for better results
@@ -60,20 +61,20 @@ def optimize_webp(file_path, target_bytes=8192):
             file_path,
             "-o", output_path
         ]
-        
+
         subprocess.run(cmd, check=True)
-        
+
         if os.path.exists(output_path):
             new_size = os.path.getsize(output_path)
             # Replace original with optimized
             os.replace(output_path, file_path)
             return True, new_size / 1024.0
-            
+
     except Exception as e:
         print(f"Error during cwebp compression: {e}")
         if os.path.exists(output_path):
             os.remove(output_path)
-            
+
     return False, current_size / 1024.0
 
 def main():
@@ -94,8 +95,10 @@ def main():
         region_name="auto",
     )
 
-    print(f"[{datetime.now().isoformat()}] Listing *-320.webp files in {PUBLIC_BUCKET}...")
-    
+    print(
+        f"[{datetime.now(UTC).isoformat()}] Listing *-320.webp files in {PUBLIC_BUCKET}..."
+    )
+
     paginator = s3.get_paginator("list_objects_v2")
     pages = paginator.paginate(Bucket=PUBLIC_BUCKET)
 
@@ -113,7 +116,7 @@ def main():
         thumbnails = thumbnails[:args.limit]
 
     print(f"Found {len(thumbnails)} thumbnails.")
-    
+
     if not os.path.exists(TEMP_DIR):
         os.makedirs(TEMP_DIR)
 
@@ -126,19 +129,19 @@ def main():
     for thumb in thumbnails:
         key = thumb["key"]
         size_kb = thumb["size"] / 1024.0
-        
+
         if size_kb > TARGET_MAX_SIZE_KB:
             oversized_count += 1
             if args.dry_run:
                 print(f"{key:<50} | {size_kb:>11.2f} KiB | [OVERSIZED]")
                 continue
-            
+
             # Download and optimize
             local_path = os.path.join(TEMP_DIR, os.path.basename(key))
             s3.download_file(PUBLIC_BUCKET, key, local_path)
-            
+
             success, new_size_kb = optimize_webp(local_path, target_bytes=IDEAL_TARGET_SIZE_BYTES)
-            
+
             if success:
                 s3.upload_file(local_path, PUBLIC_BUCKET, key)
                 saved = size_kb - new_size_kb
@@ -146,10 +149,10 @@ def main():
                 print(f"{key:<50} | {size_kb:>11.2f} KiB | Optimized to {new_size_kb:.2f} KiB")
             else:
                 print(f"{key:<50} | {size_kb:>11.2f} KiB | [SKIPPED - Already Optimal]")
-            
+
             if os.path.exists(local_path):
                 os.remove(local_path)
-            
+
             time.sleep(0.05) # Small delay
         else:
             # Uncomment if you want to see all files
@@ -157,7 +160,7 @@ def main():
             pass
 
     print("\n" + "=" * 60)
-    print(f"Summary:")
+    print("Summary:")
     print(f"  Total thumbnails checked: {len(thumbnails)}")
     print(f"  Oversized thumbnails (>10KiB): {oversized_count}")
     if not args.dry_run:

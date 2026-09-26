@@ -64,9 +64,10 @@ bash download_backups.sh
 # Type checking
 pyright                                # checks app.py, migrate_images.py, get_jpg_quality.py, wsgi.py
 
-# Linting (ruff — no config file, uses defaults)
-ruff check .
-ruff format .
+# Linting (ruff — rule set pinned in ruff.toml, must stay green)
+ruff check .                              # gate
+ruff check --fix .                        # autofix before committing
+ruff format .                             # opt-in, not enforced
 ```
 
 No `package.json`, `Makefile`, or test runner. Install deps: `pip install -r requirements.txt` (requires `libmagickwand-dev` + `webp` system packages).
@@ -80,7 +81,7 @@ No `package.json`, `Makefile`, or test runner. Install deps: `pip install -r req
 - **R2 access**: `boto3.client("s3", endpoint_url=CF_ENDPOINT, ...)` per call — no shared client singleton.
 - **No DI / no ORM / no state management** — plain functions, env-based config via `python-dotenv`.
 - **Naming**: `snake_case` for functions/vars, `UPPER_SNAKE` for env-derived constants.
-- **Formatting**: no enforced formatter config; follow existing 4-space indent. Ruff available but unconfigured.
+- **Formatting**: no enforced formatter; 4-space indent. `ruff format` is available but optional.
 
 ## Important Files
 
@@ -90,6 +91,7 @@ No `package.json`, `Makefile`, or test runner. Install deps: `pip install -r req
 | `requirements.txt` | Pinned prod deps (Flask 3.0.3, Pillow 11.0.0, Wand 0.6.13, boto3 1.35.49, gevent 24.10.3) |
 | `gunicorn.py` | `bind 0.0.0.0:5002`, 4 gevent workers, 60s timeout |
 | `pyrightconfig.json` | Type checking — includes `app.py`, `migrate_images.py`, `get_jpg_quality.py`, `wsgi.py` |
+| `ruff.toml` | Lint rule set (pinned so `ruff check` is deterministic across machines) |
 | `.env` / `.env.example` | `CF_ACCESS_KEY`, `CF_SECRET_KEY`, `CF_ENDPOINT`, `SECRET_KEY`, `PUBLIC_BUCKET`, `PRIVATE_BUCKET`, `ALLOW_HOSTS` |
 | `Dockerfile` | `python:3.11-slim`, installs `libmagickwand-dev` + `webp`, runs gunicorn |
 | `migrate_images.py` | `MigrationState`, `Logger`, `process_single_file()`, `get_master_files()` |
@@ -103,7 +105,7 @@ No `package.json`, `Makefile`, or test runner. Install deps: `pip install -r req
 - **Server**: Gunicorn + gevent (not Flask dev server in prod). Port `5002`.
 - **Env**: `python-dotenv` loads `.env`; `ALLOW_HOSTS` controls CORS origins (default `*`).
 - **Type checking**: `pyright` (config in `pyrightconfig.json`, venv at `.venv`).
-- **Linting**: `ruff` (no config, uses `.ruff_cache/`).
+- **Linting**: `ruff` (rule set pinned in `ruff.toml`; `BLE001`, `S201`, `S603` ignored on purpose).
 - **No Node / no Bun / no frontend tooling**.
 
 ## Testing & QA
@@ -111,5 +113,6 @@ No `package.json`, `Makefile`, or test runner. Install deps: `pip install -r req
 - **No test suite exists** — no `tests/`, `test_*.py`, `pytest.ini`, or test deps in `requirements.txt`.
 - **Manual verification**: use `migrate_images.py --dry-run --limit N` for migration; `curl` against endpoints with `Authorization: Bearer <SECRET_KEY>` for upload/fetch/list/delete.
 - **Type checking** is the primary automated QA: `pyright` (run after changes to `app.py` / `migrate_images.py`).
+- **Linting** is the second automated gate: `ruff check .` must pass (rule set in `ruff.toml`).
 - **If adding tests**: `pip install pytest pytest-flask`, place in `tests/test_*.py`, run `pytest`. Add `pytest`/`coverage` to requirements or a dev requirements file.
 - **ImageMagick limits**: test large images locally — `512MB` memory cap can OOM on high-res inputs; check `limits` in `app.py:25`.

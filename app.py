@@ -1,27 +1,28 @@
-import os
-import hmac
-import boto3
-import random
-import string
-import json
 import gc
-from tqdm import tqdm
-from wand.image import Image
-from wand.color import Color
-from wand.resource import limits
-from functools import wraps
-from dotenv import load_dotenv
-from wand.drawing import Drawing
-from colorthon import Colors as Fore
-from PIL import Image as PILImage
-from get_jpg_quality import get_jpg_quality
-from flask import Flask, request, jsonify
-from botocore.exceptions import ClientError
-import traceback
+import hmac
+import json
+import os
+import secrets
+import string
 import subprocess
-from flask import Response
-from werkzeug.utils import secure_filename
+import traceback
+from functools import wraps
+
+import boto3
+from botocore.exceptions import ClientError
+from colorthon import Colors as Fore
+from dotenv import load_dotenv
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS  # Import CORS
+from PIL import Image as PILImage
+from tqdm import tqdm
+from wand.color import Color
+from wand.drawing import Drawing
+from wand.image import Image
+from wand.resource import limits
+from werkzeug.utils import secure_filename
+
+from get_jpg_quality import get_jpg_quality
 
 # Set ImageMagick resource limits to prevent OOM
 limits["memory"] = 512 * 1024 * 1024  # 512MB
@@ -102,15 +103,15 @@ def serve_image(image_path):
                 404,
             )  # Return 404 if image not found
         else:
-            return jsonify({"error": f"Error fetching image: {str(e)}"}), 500
+            return jsonify({"error": f"Error fetching image: {e!s}"}), 500
     except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        return jsonify({"error": f"An unexpected error occurred: {e!s}"}), 500
 
 
 def generate_random_filename(length, extension):
     """Generates a random filename with random placement of letters and numbers."""
     characters = string.ascii_letters + string.digits
-    random_part = "".join(random.choice(characters) for _ in range(length))
+    random_part = "".join(secrets.choice(characters) for _ in range(length))
     return f"{random_part}.{extension}"
 
 
@@ -169,7 +170,7 @@ if __name__ == "__main__":
 def upload():
     # bucket_name = data.get("bucket")
     bucket_name = request.form.get("bucket")
-    print(f"--- Upload Start ---")
+    print("--- Upload Start ---")
     print(f"Bucket Name: {bucket_name}")
     print(f"Files in request: {request.files}")
 
@@ -189,7 +190,7 @@ def upload():
                 if file and allowed_file(file.filename):
                     filename = file.filename
                     print(f"Processing file: {filename}")
-                    if not filename == None:
+                    if filename is not None:
                         unique_filename = generate_unique_filename(filename)
                         # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
                         image_path = os.path.join(
@@ -219,7 +220,7 @@ def upload():
 
         except Exception as e:
             traceback.print_exc()
-            return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
+            return (jsonify({"error": f"Error uploading files: {e!s}"}), 500)
         return (
             jsonify(
                 {"message": "All files uploaded successfully", "files": uploaded_files}
@@ -242,7 +243,7 @@ def upload():
                 if file and allowed_file(file.filename):
                     filename = file.filename
                     print(f"Processing private file: {filename}")
-                    if not filename == None:
+                    if filename is not None:
                         unique_filename = generate_unique_filename(filename)
                         # file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_filename))
                         image_path = os.path.join(
@@ -264,7 +265,7 @@ def upload():
 
         except Exception as e:
             traceback.print_exc()
-            return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
+            return (jsonify({"error": f"Error uploading files: {e!s}"}), 500)
         return (
             jsonify(
                 {"message": "All files uploaded successfully", "files": uploaded_files}
@@ -287,7 +288,7 @@ def upload():
 
                 filename = file.filename
                 print(f"Processing other file: {filename}")
-                if not filename == None:
+                if filename is not None:
                     unique_filename = generate_unique_document_filename(filename)
                     image_path = os.path.join(
                         app.config["UPLOAD_FOLDER"], unique_filename
@@ -316,7 +317,7 @@ def upload():
             )
         except Exception as e:
             traceback.print_exc()
-            return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
+            return (jsonify({"error": f"Error uploading files: {e!s}"}), 500)
 
 
 @app.route("/delete", methods=["POST"])
@@ -367,7 +368,7 @@ def delete():
         return (
             jsonify(
                 {
-                    "error": f"Unexpected error: {str(e)}",
+                    "error": f"Unexpected error: {e!s}",
                     "details": traceback.format_exc(),
                 }
             ),
@@ -418,7 +419,7 @@ def delete_bucket_file(key):
         return (
             jsonify(
                 {
-                    "error": f"Unexpected error: {str(e)}",
+                    "error": f"Unexpected error: {e!s}",
                     "details": traceback.format_exc(),
                     "key": key,
                 }
@@ -461,9 +462,9 @@ def fetch_file():
     except ClientError as e:
         if e.response["Error"]["Code"] == "NoSuchKey":
             return jsonify({"error": "File not found"}), 404
-        return jsonify({"error": f"Error fetching file: {str(e)}"}), 500
+        return jsonify({"error": f"Error fetching file: {e!s}"}), 500
     except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        return jsonify({"error": f"An unexpected error occurred: {e!s}"}), 500
 
 
 @app.route("/list", methods=["POST"])
@@ -483,7 +484,7 @@ def list():
         )
 
     except Exception as e:
-        return jsonify({"error": f"Error listing files: {str(e)}"}), 500
+        return jsonify({"error": f"Error listing files: {e!s}"}), 500
 
     return jsonify(result), 200
 
@@ -574,12 +575,12 @@ def upload_original():
             return jsonify({"error": "No file part in the request"}), 400
 
         for file in files:
-            if file.filename == "" or file.filename == None:
+            if file.filename == "" or file.filename is None:
                 return jsonify({"error": "No selected file"}), 400
 
             filename = secure_filename(file.filename)
 
-            if not filename == None:
+            if filename is not None:
                 file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
                 file.save(file_path)
                 # convert_webp(image_path)
@@ -594,7 +595,7 @@ def upload_original():
                 )
                 delete_file(file_path)
     except Exception as e:
-        return (jsonify({"error": f"Error uploading files: {str(e)}"}), 500)
+        return (jsonify({"error": f"Error uploading files: {e!s}"}), 500)
     return (
         jsonify(
             {"message": "All files uploaded successfully", "files": uploaded_files}
@@ -619,7 +620,7 @@ def upload_custom():
             return jsonify({"error": "No file part in the request"}), 400
 
         for file in files:
-            if file.filename == "" or file.filename == None:
+            if file.filename == "" or file.filename is None:
                 continue
 
             filename = secure_filename(file.filename)
@@ -647,7 +648,7 @@ def upload_custom():
         return (
             jsonify(
                 {
-                    "error": f"Error uploading files: {str(e)}",
+                    "error": f"Error uploading files: {e!s}",
                     "details": traceback.format_exc(),
                 }
             ),
@@ -671,8 +672,6 @@ def upload_watermark(image_path):
     """
     try:
         basename = os.path.basename(image_path)
-        name_without_extension = os.path.splitext(basename)[0]
-        extension = image_path.rsplit(".", 1)[1].lower()
 
         # Paths for watermarked full-size images
         path = "output/" + basename
@@ -743,7 +742,7 @@ def resize_image(img, compressed_rate):
     return img  # Return resized or original image data
 
 
-def generate_thumbnails(image_path, sizes=[320, 640]):
+def generate_thumbnails(image_path, sizes=None):
     """Generates thumbnail variants without watermarks.
 
     Args:
@@ -753,6 +752,7 @@ def generate_thumbnails(image_path, sizes=[320, 640]):
     Returns:
         List of generated thumbnail file paths
     """
+    sizes = sizes or [320, 640]
     try:
         thumbnail_paths = []
         basename = os.path.basename(image_path)
@@ -792,7 +792,7 @@ def generate_thumbnails(image_path, sizes=[320, 640]):
                     # Also save as WebP with size suffix
                     webp_output_filename = f"{name_without_extension}-{size}.webp"
                     webp_output_path = f"output/{webp_output_filename}"
-                    
+
                     try:
                         # Use cwebp for better compression
                         # For 320px, we target 8KB (8192 bytes)
@@ -805,10 +805,10 @@ def generate_thumbnails(image_path, sizes=[320, 640]):
                             output_path,
                             "-o", webp_output_path
                         ]
-                        
+
                         if size == 320:
                             cwebp_cmd.extend(["-size", "8192"])
-                        
+
                         subprocess.run(cwebp_cmd, check=True)
                         thumbnail_paths.append(webp_output_path)
                         print(f"Generated WebP thumbnail (cwebp): {webp_output_filename}")
@@ -952,11 +952,10 @@ def upload_to_r2_cloudflare(
         unit_scale=True,
         desc=f"Uploading {file_name} to R2",
         ascii=True,
-    ) as pbar:
-        with open(local_file, "rb") as f:
-            s3.upload_fileobj(
-                f, remote_folder, remote_key, Callback=lambda x: pbar.update(x)
-            )
+    ) as pbar, open(local_file, "rb") as f:
+        s3.upload_fileobj(
+            f, remote_folder, remote_key, Callback=lambda x: pbar.update(x)
+        )
 
 
 def delete_from_r2_cloudflare(
@@ -981,7 +980,7 @@ def delete_from_r2_cloudflare(
                     "message": f"File '{file_name}' not found in bucket '{remote_folder}'",
                 }
             else:
-                return {"success": False, "message": f"Error checking file: {str(e)}"}
+                return {"success": False, "message": f"Error checking file: {e!s}"}
 
         # If file exists, delete it
         s3.delete_object(Bucket=remote_folder, Key=file_name)
@@ -991,9 +990,9 @@ def delete_from_r2_cloudflare(
         }
 
     except ClientError as e:
-        return {"success": False, "message": f"AWS Error: {str(e)}"}
+        return {"success": False, "message": f"AWS Error: {e!s}"}
     except Exception as e:
-        return {"success": False, "message": f"Unexpected error: {str(e)}"}
+        return {"success": False, "message": f"Unexpected error: {e!s}"}
 
 
 # Usage example:
@@ -1017,11 +1016,11 @@ def delete_from_r2_cloudflare(
 def check_file_exists():
     """
     Check if a file exists in a specified bucket.
-    
+
     Query Parameters:
     - filename: Name of the file to check
     - bucket: Name of the bucket to check (optional, defaults to PUBLIC_BUCKET)
-    
+
     Returns:
     JSON response with file existence status
     """
@@ -1061,7 +1060,7 @@ def check_file_exists():
 
     except Exception as e:
         # Log the error for debugging
-        print(f"Error checking file existence: {str(e)}")
+        print(f"Error checking file existence: {e!s}")
         return (
             jsonify({"error": "Failed to check file existence", "details": str(e)}),
             500,

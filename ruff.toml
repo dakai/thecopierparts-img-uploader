@@ -1,0 +1,26 @@
+# Pinned so `ruff check .` gives the same answer on every machine and in CI.
+# Keep this file green: run `ruff check --fix .` before committing.
+target-version = "py311"
+line-length = 88
+
+[lint]
+select = [
+    "E4",  # import-time pycodestyle errors
+    "E7",  # statement-level pycodestyle errors
+    "E9",  # syntax and runtime errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # import sorting
+    "B",   # bugbear
+    "SIM", # simplify
+    "UP",  # pyupgrade
+    "RUF", # ruff-specific
+    "S",   # bandit
+    "DTZ", # naive datetime
+    "BLE", # blind except
+]
+ignore = [
+    "BLE001", # deliberate: handlers catch broadly and return a 500 JSON body
+    "S201",   # dev-only `app.run(debug=True)`; production runs gunicorn
+    "S603",   # every subprocess call passes an argv list, never shell=True
+]

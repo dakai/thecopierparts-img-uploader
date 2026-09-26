@@ -29,21 +29,23 @@ Author: Migration Script
 Date: 2026-01-24
 """
 
-import os
-import sys
-import json
-import boto3
-import re
 import argparse
-from datetime import datetime
-from pathlib import Path
-from wand.image import Image
-from PIL import Image as PILImage
-from get_jpg_quality import get_jpg_quality
+import contextlib
+import json
+import os
+import re
+import subprocess
+import sys
 import time
 import traceback
-import subprocess
+from datetime import UTC, datetime
+
+import boto3
 from dotenv import load_dotenv
+from PIL import Image as PILImage
+from wand.image import Image
+
+from get_jpg_quality import get_jpg_quality
 
 # Load environment
 load_dotenv()
@@ -51,7 +53,7 @@ load_dotenv()
 # Configuration
 TEMP_DIR = "migration_temp"
 STATE_FILE = "migration_state.json"
-LOG_FILE = f"migration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+LOG_FILE = f"migration_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.log"
 BATCH_SIZE = 50
 RATE_LIMIT_DELAY = 0.1  # 100ms between operations
 MAX_RETRIES = 3
@@ -75,13 +77,13 @@ class MigrationState:
     def _load(self):
         """Load existing state or create new."""
         if os.path.exists(self.state_file):
-            with open(self.state_file, "r") as f:
+            with open(self.state_file) as f:
                 return json.load(f)
         return {
             "processed": [],
             "skipped": [],
             "failed": [],
-            "started_at": datetime.now().isoformat(),
+            "started_at": datetime.now(UTC).isoformat(),
             "last_checkpoint": None,
             "stats": {
                 "total_files": 0,
@@ -127,7 +129,7 @@ class MigrationState:
             {
                 "filename": filename,
                 "reason": reason,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
         self.state["stats"]["skipped_count"] += 1
@@ -139,7 +141,7 @@ class MigrationState:
             {
                 "filename": filename,
                 "error": str(error),
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
         self.state["stats"]["failed_count"] += 1
@@ -155,7 +157,7 @@ class Logger:
     def log(self, level, message, **kwargs):
         """Log message with metadata."""
         entry = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": level,
             "message": message,
             **kwargs,
@@ -222,7 +224,7 @@ def check_missing_thumbnails(s3_client, bucket, filename):
     for variant in thumbnail_variants:
         try:
             s3_client.head_object(Bucket=bucket, Key=variant)
-        except:
+        except Exception:
             missing.append(variant)
 
     return missing
@@ -351,8 +353,8 @@ def process_single_file(
             s3_client.head_object(Bucket=private_bucket, Key=filename)
             s3_client.download_file(private_bucket, filename, temp_private_file)
             private_exists = True
-            logger.log("INFO", f"Using clean original from PRIVATE bucket")
-        except Exception as e:
+            logger.log("INFO", "Using clean original from PRIVATE bucket")
+        except Exception:
             logger.log(
                 "WARN", f"File not in PRIVATE bucket, using PUBLIC version: {filename}"
             )
@@ -392,9 +394,9 @@ def process_single_file(
                 ]
                 if size == 320:
                     cwebp_cmd.extend(["-size", "8192"]) # Target 8 KiB
-                
+
                 subprocess.run(cwebp_cmd, check=True)
-                
+
                 s3_client.upload_file(
                     webp_output, public_bucket, f"{base_name}-{size}.webp"
                 )
@@ -440,12 +442,10 @@ def process_single_file(
 
     finally:
         # Cleanup temp files
-        for temp_file in [temp_public_file, temp_private_file] + uploaded_files:
+        for temp_file in [temp_public_file, temp_private_file, *uploaded_files]:
             if temp_file and os.path.exists(temp_file):
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(temp_file)
-                except:
-                    pass
 
         # Rate limiting
         time.sleep(RATE_LIMIT_DELAY)
@@ -460,14 +460,14 @@ def generate_report(state, logger):
 MIGRATION REPORT
 {"=" * 60}
 Started: {state.state["started_at"]}
-Completed: {datetime.now().isoformat()}
+Completed: {datetime.now(UTC).isoformat()}
 
 SUMMARY:
   Total Files:           {stats["total_files"]}
   Successfully Processed: {stats["processed_count"]}
   Skipped:               {stats["skipped_count"]}
   Failed:                {stats["failed_count"]}
-  
+
 OPERATIONS:
   Images Resized:        {stats["resized_count"]}
   Thumbnails Generated:  {stats["thumbnails_generated"]}
@@ -566,7 +566,7 @@ def main():
                 continue
 
             # Process file
-            result = process_single_file(
+            process_single_file(
                 s3_client,
                 PUBLIC_BUCKET,
                 PRIVATE_BUCKET,
@@ -577,7 +577,7 @@ def main():
             )
 
         # Checkpoint after each batch
-        state.state["last_checkpoint"] = datetime.now().isoformat()
+        state.state["last_checkpoint"] = datetime.now(UTC).isoformat()
         state.save()
         logger.log("INFO", f"Checkpoint saved after batch {batch_num}")
 
