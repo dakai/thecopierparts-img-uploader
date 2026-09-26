@@ -40,9 +40,10 @@ A specialized Flask-based microservice for managing image uploads, processing, a
 ## Building and Running
 
 ### Environment Configuration
-Copy `.env.example` to `.env.local` and fill in:
-- `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_ACCESS_KEY`, `CF_SECRET_KEY`, `CF_ENDPOINT`
+Copy `.env.example` to `.env` and fill in:
+- `CF_ACCESS_KEY`, `CF_SECRET_KEY`, `CF_ENDPOINT` (Cloudflare R2 S3 credentials)
 - `SECRET_KEY` (Used as the Bearer Token for API auth)
+- `PUBLIC_BUCKET`, `PRIVATE_BUCKET` (bucket names, default to `PUBLIC_BUCKET` / `PRIVATE_BUCKET`)
 - `ALLOW_HOSTS` (CORS configuration)
 
 ### Local Development
@@ -60,15 +61,15 @@ python app.py
 docker build -t img-uploader .
 
 # Run the container
-docker run -p 5002:5002 --env-file .env.local img-uploader
+docker run -p 5002:5002 --env-file .env img-uploader
 ```
 
 ## Development Conventions
 
 - **Authentication**: All API endpoints (except `/`) require a `Authorization: Bearer <SECRET_KEY>` header.
 - **Storage**:
-  - `PUBLIC_BUCKET`: Public-facing bucket for watermarked images and thumbnails.
-  - `PRIVATE_BUCKET`: Private storage for original, unwatermarked high-quality assets.
+  - `PUBLIC_BUCKET` (default `PUBLIC_BUCKET`): Public-facing bucket for watermarked images and thumbnails.
+  - `PRIVATE_BUCKET` (default `PRIVATE_BUCKET`): Private storage for original, unwatermarked high-quality assets.
 - **Image Specs**:
   - Default max dimension for public images: 800px.
   - Watermark: Centered with "TheCopierParts.com" text on a semi-transparent black background.

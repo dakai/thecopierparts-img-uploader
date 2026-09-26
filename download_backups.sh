@@ -6,17 +6,17 @@ BUCKET="your_backup_bucket"
 PREFIX="your/backup/prefix/"
 DOWNLOAD_DIR="downloads/${BUCKET}/${PREFIX}"
 
-# Load SECRET_KEY from .env.local
-if [ -f .env.local ]; then
-    source .env.local
+# Load SECRET_KEY from .env
+if [ -f .env ]; then
+    source .env
     API_KEY=$SECRET_KEY
 else
-    echo "Error: .env.local file not found."
+    echo "Error: .env file not found."
     exit 1
 fi
 
 if [ -z "$API_KEY" ]; then
-    echo "Error: SECRET_KEY not found in .env.local"
+    echo "Error: SECRET_KEY not found in .env"
     exit 1
 fi
 

@@ -4,6 +4,7 @@ __pycache__/
 *.pyd
 .VSCode/
 .env
+.env.local
 *.egg-info/
 *.egg
 venv/

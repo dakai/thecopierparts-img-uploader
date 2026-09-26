@@ -1,4 +1,5 @@
 import os
+import hmac
 import boto3
 import random
 import string
@@ -8,6 +9,7 @@ from tqdm import tqdm
 from wand.image import Image
 from wand.color import Color
 from wand.resource import limits
+from functools import wraps
 from dotenv import load_dotenv
 from wand.drawing import Drawing
 from colorthon import Colors as Fore
@@ -27,19 +29,16 @@ limits["map"] = 1024 * 1024 * 1024  # 1GB
 
 load_dotenv()
 
-CF_API_TOKEN = os.getenv("CF_API_TOKEN")
 ALLOW_HOSTS = os.getenv("ALLOW_HOSTS", "*").split(
     ","
 )  # Get allowed origins from env, default to all
-CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID")
 CF_ACCESS_KEY = os.getenv("CF_ACCESS_KEY")
 CF_SECRET_KEY = os.getenv("CF_SECRET_KEY")
 CF_ENDPOINT = os.getenv("CF_ENDPOINT")
-# PUBLIC_BUCKET = os.getenv("PUBLIC_BUCKET")
-API_KEY = os.getenv("SECRET_KEY")
+API_KEY = os.getenv("SECRET_KEY", "")
 # R2 bucket details
-PUBLIC_BUCKET = "your_public_bucket"
-PRIVATE_BUCKET = "your_private_bucket"
+PUBLIC_BUCKET = os.getenv("PUBLIC_BUCKET", "your_public_bucket")
+PRIVATE_BUCKET = os.getenv("PRIVATE_BUCKET", "your_private_bucket")
 
 app = Flask(__name__)
 cors = CORS(
@@ -50,20 +49,28 @@ UPLOAD_FOLDER = "uploads"  # Folder to store uploaded files
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "tif", "avif"}  # Allowed image extensions
 
+if not API_KEY:
+    raise RuntimeError("SECRET_KEY is not set")
+
+
+def require_auth(fn):
+    """Reject requests without a valid `Authorization: Bearer <SECRET_KEY>` header."""
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        scheme, _, token = request.headers.get("Authorization", "").partition(" ")
+        if scheme != "Bearer" or not hmac.compare_digest(
+            token.encode(), API_KEY.encode()
+        ):
+            return jsonify({"error": "Authentication required"}), 401
+        return fn(*args, **kwargs)
+
+    return wrapper
+
 
 @app.route("/image/<path:image_path>")
+@require_auth
 def serve_image(image_path):
-    # 1. Authentication Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    # data = request.get_json()
-    # file = data.get("filename")
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     """Serves images from R2 storage."""
     try:
         s3 = boto3.client(
@@ -158,25 +165,15 @@ if __name__ == "__main__":
 
 
 @app.route("/upload", methods=["POST"])
+@require_auth
 def upload():
-    # 1. Authentication Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    # data = request.get_json()
-    # file = data.get("filename")
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     # bucket_name = data.get("bucket")
     bucket_name = request.form.get("bucket")
     print(f"--- Upload Start ---")
     print(f"Bucket Name: {bucket_name}")
     print(f"Files in request: {request.files}")
 
-    if bucket_name == "your_public_bucket":
+    if bucket_name == PUBLIC_BUCKET:
         try:
             uploaded_files = []
             files = request.files.getlist("file")
@@ -229,7 +226,7 @@ def upload():
             ),
             201,
         )
-    elif bucket_name == "your_private_bucket":
+    elif bucket_name == PRIVATE_BUCKET:
         try:
             uploaded_files = []
             files = request.files.getlist("file")
@@ -323,16 +320,8 @@ def upload():
 
 
 @app.route("/delete", methods=["POST"])
+@require_auth
 def delete():
-    # Auth validation
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     try:
         # Get request data
         data = request.get_json()
@@ -387,16 +376,8 @@ def delete():
 
 
 @app.route("/delete/<path:key>", methods=["DELETE"])
+@require_auth
 def delete_bucket_file(key):
-    # Auth validation
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     try:
         # You might want to add validation for the key format
         if not key:
@@ -447,16 +428,8 @@ def delete_bucket_file(key):
 
 
 @app.route("/fetch", methods=["POST"])
+@require_auth
 def fetch_file():
-    # 1. Authentication Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     data = request.get_json()
     if not data:
         return jsonify({"error": "No JSON data provided"}), 400
@@ -494,15 +467,8 @@ def fetch_file():
 
 
 @app.route("/list", methods=["POST"])
+@require_auth
 def list():
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     try:
         data = request.get_json()
         bucket = data.get("bucket")
@@ -598,16 +564,8 @@ def get_bucket_contents(
 
 
 @app.route("/upload_original", methods=["POST"])
+@require_auth
 def upload_original():
-    # 1. Authentication Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     bucket_name = request.form.get("bucket")
     try:
         uploaded_files = []
@@ -646,16 +604,8 @@ def upload_original():
 
 
 @app.route("/upload_custom", methods=["POST"])
+@require_auth
 def upload_custom():
-    # 1. Authentication Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     bucket_name = request.form.get("bucket")
     custom_path = request.form.get("path", "").strip("/")
 
@@ -1063,18 +1013,8 @@ def delete_from_r2_cloudflare(
 
 
 @app.route("/check_file_exists", methods=["GET"])
+@require_auth
 def check_file_exists():
-    # 1. Authentication Check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Authentication required"}), 401
-
-    api_key = auth_header.split("Bearer ")[1]
-    # data = request.get_json()
-    # file = data.get("filename")
-    if api_key != API_KEY:
-        return jsonify({"error": "Invalid API key"}), 401
-
     """
     Check if a file exists in a specified bucket.
     

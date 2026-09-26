@@ -90,7 +90,7 @@ No `package.json`, `Makefile`, or test runner. Install deps: `pip install -r req
 | `requirements.txt` | Pinned prod deps (Flask 3.0.3, Pillow 11.0.0, Wand 0.6.13, boto3 1.35.49, gevent 24.10.3) |
 | `gunicorn.py` | `bind 0.0.0.0:5002`, 4 gevent workers, 60s timeout |
 | `pyrightconfig.json` | Type checking — includes `app.py`, `migrate_images.py`, `get_jpg_quality.py`, `wsgi.py` |
-| `.env` / `.env.example` | `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_ACCESS_KEY`, `CF_SECRET_KEY`, `CF_ENDPOINT`, `SECRET_KEY`, `ALLOW_HOSTS` |
+| `.env` / `.env.example` | `CF_ACCESS_KEY`, `CF_SECRET_KEY`, `CF_ENDPOINT`, `SECRET_KEY`, `PUBLIC_BUCKET`, `PRIVATE_BUCKET`, `ALLOW_HOSTS` |
 | `Dockerfile` | `python:3.11-slim`, installs `libmagickwand-dev` + `webp`, runs gunicorn |
 | `migrate_images.py` | `MigrationState`, `Logger`, `process_single_file()`, `get_master_files()` |
 | `MIGRATION_README.md` | Migration usage docs |

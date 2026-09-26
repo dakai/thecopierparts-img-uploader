@@ -9,17 +9,12 @@ echo "========================================="
 echo ""
 
 # Check environment
-if [ ! -f .env.local ] && [ ! -f .env ]; then
-    echo "✗ .env or .env.local file not found"
+if [ ! -f .env ]; then
+    echo "✗ .env file not found"
     exit 1
 fi
 
-# Load env variables (prefer .env.local)
-if [ -f .env.local ]; then
-    source .env.local
-else
-    source .env
-fi
+source .env
 
 if [ -z "$CF_ENDPOINT" ] || [ -z "$CF_ACCESS_KEY" ] || [ -z "$CF_SECRET_KEY" ]; then
     echo "✗ Missing CF_ENDPOINT, CF_ACCESS_KEY, or CF_SECRET_KEY"
