@@ -22,6 +22,8 @@ from datetime import UTC, datetime
 import boto3
 from dotenv import load_dotenv
 
+from r2_cache import upload_with_cache
+
 # Load environment
 load_dotenv()
 
@@ -143,7 +145,7 @@ def main():
             success, new_size_kb = optimize_webp(local_path, target_bytes=IDEAL_TARGET_SIZE_BYTES)
 
             if success:
-                s3.upload_file(local_path, PUBLIC_BUCKET, key)
+                upload_with_cache(s3, local_path, PUBLIC_BUCKET, key)
                 saved = size_kb - new_size_kb
                 total_saved += saved
                 print(f"{key:<50} | {size_kb:>11.2f} KiB | Optimized to {new_size_kb:.2f} KiB")

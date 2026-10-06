@@ -23,6 +23,8 @@ from datetime import UTC, datetime
 import boto3
 from dotenv import load_dotenv
 
+from r2_cache import upload_with_cache
+
 # Load environment
 load_dotenv()
 
@@ -134,7 +136,7 @@ def main():
                 if success:
                     saved = before - after
                     # 3. Upload only if modified
-                    s3.upload_file(local_path, PUBLIC_BUCKET, key)
+                    upload_with_cache(s3, local_path, PUBLIC_BUCKET, key)
                     total_saved_bytes += saved
                     print(f"[{i+1}/{total_files}] {key:<42} | {saved/1024:>7.2f} KiB | [STRIPPED]")
                 else:

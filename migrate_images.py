@@ -46,6 +46,7 @@ from PIL import Image as PILImage
 from wand.image import Image
 
 from get_jpg_quality import get_jpg_quality
+from r2_cache import upload_with_cache
 
 # Load environment
 load_dotenv()
@@ -342,7 +343,7 @@ def process_single_file(
                 )
 
                 # Re-upload to PUBLIC bucket
-                s3_client.upload_file(temp_public_file, public_bucket, filename)
+                upload_with_cache(s3_client, temp_public_file, public_bucket, filename)
                 logger.log("SUCCESS", f"Uploaded resized {filename} to PUBLIC")
                 operations.append("resize")
 
@@ -373,10 +374,9 @@ def process_single_file(
             # Generate original format thumbnail
             orig_output = os.path.join(TEMP_DIR, f"{base_name}-{size}{extension}")
             if generate_thumbnail(source_file, orig_output, size, logger):
-                s3_client.upload_file(
-                    orig_output, public_bucket, f"{base_name}-{size}{extension}"
-                )
-                logger.log("SUCCESS", f"Uploaded {base_name}-{size}{extension}")
+                thumb_key = f"{base_name}-{size}{extension}"
+                upload_with_cache(s3_client, orig_output, public_bucket, thumb_key)
+                logger.log("SUCCESS", f"Uploaded {thumb_key}")
                 uploaded_files.append(orig_output)
                 generated_count += 1
 
@@ -397,10 +397,9 @@ def process_single_file(
 
                 subprocess.run(cwebp_cmd, check=True)
 
-                s3_client.upload_file(
-                    webp_output, public_bucket, f"{base_name}-{size}.webp"
-                )
-                logger.log("SUCCESS", f"Uploaded {base_name}-{size}.webp (via cwebp)")
+                webp_key = f"{base_name}-{size}.webp"
+                upload_with_cache(s3_client, webp_output, public_bucket, webp_key)
+                logger.log("SUCCESS", f"Uploaded {webp_key} (via cwebp)")
                 uploaded_files.append(webp_output)
                 generated_count += 1
             except Exception as e:
@@ -409,10 +408,9 @@ def process_single_file(
                     with Image(filename=webp_output) as img:
                         img.format = "webp"
                         img.save(filename=webp_output)
-                    s3_client.upload_file(
-                        webp_output, public_bucket, f"{base_name}-{size}.webp"
-                    )
-                    logger.log("SUCCESS", f"Uploaded {base_name}-{size}.webp (Wand fallback)")
+                    webp_key = f"{base_name}-{size}.webp"
+                    upload_with_cache(s3_client, webp_output, public_bucket, webp_key)
+                    logger.log("SUCCESS", f"Uploaded {webp_key} (Wand fallback)")
                     uploaded_files.append(webp_output)
                     generated_count += 1
 

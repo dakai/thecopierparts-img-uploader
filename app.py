@@ -23,6 +23,7 @@ from wand.resource import limits
 from werkzeug.utils import secure_filename
 
 from get_jpg_quality import get_jpg_quality
+from r2_cache import extra_args
 
 # Set ImageMagick resource limits to prevent OOM
 limits["memory"] = 512 * 1024 * 1024  # 512MB
@@ -954,7 +955,11 @@ def upload_to_r2_cloudflare(
         ascii=True,
     ) as pbar, open(local_file, "rb") as f:
         s3.upload_fileobj(
-            f, remote_folder, remote_key, Callback=lambda x: pbar.update(x)
+            f,
+            remote_folder,
+            remote_key,
+            ExtraArgs=extra_args(remote_key),
+            Callback=lambda x: pbar.update(x),
         )
 
 
