@@ -1,24 +1,18 @@
 #!/bin/bash
 
-# Configuration
-API_URL="https://your_api_host"
-BUCKET="your_backup_bucket"
-PREFIX="your/backup/prefix/"
-DOWNLOAD_DIR="downloads/${BUCKET}/${PREFIX}"
-
-# Load SECRET_KEY from .env
+# Load configuration from .env
 if [ -f .env ]; then
     source .env
-    API_KEY=$SECRET_KEY
 else
     echo "Error: .env file not found."
     exit 1
 fi
 
-if [ -z "$API_KEY" ]; then
-    echo "Error: SECRET_KEY not found in .env"
-    exit 1
-fi
+API_URL="${BACKUP_API_URL:?Error: BACKUP_API_URL not set in .env}"
+BUCKET="${BACKUP_BUCKET:?Error: BACKUP_BUCKET not set in .env}"
+PREFIX="${BACKUP_PREFIX:?Error: BACKUP_PREFIX not set in .env}"
+API_KEY="${SECRET_KEY:?Error: SECRET_KEY not set in .env}"
+DOWNLOAD_DIR="downloads/${BUCKET}/${PREFIX}"
 
 # Ensure download directory exists
 mkdir -p "$DOWNLOAD_DIR"

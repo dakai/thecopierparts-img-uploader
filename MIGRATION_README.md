@@ -33,7 +33,7 @@ Before running the migration:
   
   objects = []
   paginator = s3.get_paginator('list_objects_v2')
-  for page in paginator.paginate(Bucket='your_public_bucket'):
+  for page in paginator.paginate(Bucket=os.getenv('PUBLIC_BUCKET')):
       for obj in page.get('Contents', []):
           objects.append({'key': obj['Key'], 'size': obj['Size']})
   

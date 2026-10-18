@@ -32,7 +32,7 @@ load_dotenv()
 CF_ENDPOINT = os.getenv("CF_ENDPOINT")
 CF_ACCESS_KEY = os.getenv("CF_ACCESS_KEY")
 CF_SECRET_KEY = os.getenv("CF_SECRET_KEY")
-PUBLIC_BUCKET = os.getenv("PUBLIC_BUCKET", "your_public_bucket")
+PUBLIC_BUCKET = os.environ["PUBLIC_BUCKET"]
 
 
 def s3_client():

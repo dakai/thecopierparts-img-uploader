@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Flask image uploader backed by Cloudflare R2 (S3-compatible). Handles image conversion, watermarking, thumbnail generation, and variant uploads for `PUBLIC_BUCKET` (public) and `PRIVATE_BUCKET` buckets. Batch migration of existing R2 images handled offline via `migrate_images.py`.
+Flask image uploader backed by Cloudflare R2 (S3-compatible). Handles image conversion, watermarking, thumbnail generation, and variant uploads for the public and private buckets (names from `PUBLIC_BUCKET` / `PRIVATE_BUCKET`). Batch migration of existing R2 images handled offline via `migrate_images.py`.
 
 - Runtime: Python 3.11, Flask + Gunicorn (gevent workers)
 - Image processing: Pillow + Wand (ImageMagick), `webp` CLI

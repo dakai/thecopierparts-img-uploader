@@ -8,19 +8,19 @@ Image upload, conversion and delivery API for **[The Copier Parts](https://theco
 
 ### Upload images and files
 
-- The file name will be altted according to different bucket name:
+- The file name will be altered according to different bucket name:
 
 1. Bucket name: `PUBLIC_BUCKET`, image files only
 
    - The file will be renamed to 7 random characters name and stored in converted jpg and web format with watermarked
-   - the file will be stored in `PRIVATE_BUCKET` bucket with same alterd filename but without watermark and in original format
+   - the file will be stored in `PRIVATE_BUCKET` with the same altered filename but without watermark and in original format
 
 2. Bucket name: `PRIVATE_BUCKET`, image files only
 
    - The file will be renamed to 7 random characters name and stored in its original format and size
 
 3. Bucket name: others
-   - The file will be renamed to additioanal 4 random characters to avoid replacing the files with the same name
+   - The file will be renamed to additional 4 random characters to avoid replacing the files with the same name
 
 ```
 curl -X POST https://url/upload \

@@ -39,8 +39,8 @@ CF_SECRET_KEY = os.getenv("CF_SECRET_KEY")
 CF_ENDPOINT = os.getenv("CF_ENDPOINT")
 API_KEY = os.getenv("SECRET_KEY", "")
 # R2 bucket details
-PUBLIC_BUCKET = os.getenv("PUBLIC_BUCKET", "your_public_bucket")
-PRIVATE_BUCKET = os.getenv("PRIVATE_BUCKET", "your_private_bucket")
+PUBLIC_BUCKET = os.environ["PUBLIC_BUCKET"]
+PRIVATE_BUCKET = os.environ["PRIVATE_BUCKET"]
 
 app = Flask(__name__)
 cors = CORS(
