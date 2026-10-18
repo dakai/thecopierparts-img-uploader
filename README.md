@@ -1,5 +1,9 @@
 # thecopierparts-img-uploader
 
+Image upload, conversion and delivery API for **[The Copier Parts](https://thecopierparts.com/)** — copier and printer parts, toner and consumables.
+
+> Main site: **https://thecopierparts.com/**
+
 ## Usage
 
 ### Upload images and files
